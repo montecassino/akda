@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 
 interface UIState {
+  leftSidebarDisabled: boolean
+  rightSidebarDisabled: boolean
   leftSidebarVisible: boolean
   rightSidebarVisible: boolean
   commandPaletteOpen: boolean
@@ -20,8 +22,10 @@ interface UIState {
 export const useUIStore = create<UIState>()(
   devtools(
     set => ({
-      leftSidebarVisible: true,
-      rightSidebarVisible: true,
+      leftSidebarDisabled: true,
+      rightSidebarDisabled: true,
+      leftSidebarVisible: false,
+      rightSidebarVisible: false,
       commandPaletteOpen: false,
       preferencesOpen: false,
 

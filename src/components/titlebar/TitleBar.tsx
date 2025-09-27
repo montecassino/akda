@@ -16,8 +16,10 @@ interface TitleBarProps {
   title?: string
 }
 
-export function TitleBar({ className, title = 'Tauri App' }: TitleBarProps) {
+export function TitleBar({ className, title = 'Pluma' }: TitleBarProps) {
   const {
+    leftSidebarDisabled,
+    rightSidebarDisabled,
     leftSidebarVisible,
     rightSidebarVisible,
     toggleLeftSidebar,
@@ -38,21 +40,23 @@ export function TitleBar({ className, title = 'Tauri App' }: TitleBarProps) {
 
         {/* Left Action Buttons */}
         <div className="flex items-center gap-1">
-          <Button
-            onClick={toggleLeftSidebar}
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-foreground/70 hover:text-foreground"
-            title={
-              leftSidebarVisible ? 'Hide Left Sidebar' : 'Show Left Sidebar'
-            }
-          >
-            {leftSidebarVisible ? (
-              <PanelLeftClose className="h-3 w-3" />
-            ) : (
-              <PanelLeft className="h-3 w-3" />
-            )}
-          </Button>
+          {!leftSidebarDisabled && (
+            <Button
+              onClick={toggleLeftSidebar}
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-foreground/70 hover:text-foreground"
+              title={
+                leftSidebarVisible ? 'Hide Left Sidebar' : 'Show Left Sidebar'
+              }
+            >
+              {leftSidebarVisible ? (
+                <PanelLeftClose className="h-3 w-3" />
+              ) : (
+                <PanelLeft className="h-3 w-3" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -72,22 +76,23 @@ export function TitleBar({ className, title = 'Tauri App' }: TitleBarProps) {
         >
           <Settings className="h-3 w-3" />
         </Button>
-
-        <Button
-          onClick={toggleRightSidebar}
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 text-foreground/70 hover:text-foreground"
-          title={
-            rightSidebarVisible ? 'Hide Right Sidebar' : 'Show Right Sidebar'
-          }
-        >
-          {rightSidebarVisible ? (
-            <PanelRightClose className="h-3 w-3" />
-          ) : (
-            <PanelRight className="h-3 w-3" />
-          )}
-        </Button>
+        {!rightSidebarDisabled && (
+          <Button
+            onClick={toggleRightSidebar}
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-foreground/70 hover:text-foreground"
+            title={
+              rightSidebarVisible ? 'Hide Right Sidebar' : 'Show Right Sidebar'
+            }
+          >
+            {rightSidebarVisible ? (
+              <PanelRightClose className="h-3 w-3" />
+            ) : (
+              <PanelRight className="h-3 w-3" />
+            )}
+          </Button>
+        )}
       </div>
     </div>
   )
