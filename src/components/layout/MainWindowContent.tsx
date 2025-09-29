@@ -1,52 +1,57 @@
 import { BookOpenIcon, FileTextIcon, UploadIcon } from 'lucide-react'
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Button } from '../ui/button'
 
 import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
+import type { PdfEntry } from '@/types/pdf'
 
-interface FileData {
-  name: string
-  pages: number
-  lastOpened: string
-}
+// interface FileData {
+//   name: string
+//   pages: number
+//   lastOpened: string
+// }
 
-interface FileItemProps {
-  file: FileData
-}
+// interface FileItemProps {
+//   file: FileData
+// }
 
-const DUMMY_FILES = [
-  {
-    id: 1,
-    name: 'Project Proposal Q3 2025.pdf',
-    pages: 45,
-    lastOpened: '2 hours ago',
-  },
-  { id: 2, name: 'Gemini-API-Guide.pdf', pages: 12, lastOpened: 'Yesterday' },
-  {
-    id: 3,
-    name: 'Tax-Form-2024-Review.pdf',
-    pages: 3,
-    lastOpened: '3 days ago',
-  },
-  {
-    id: 4,
-    name: 'Research-Paper-on-Signals.pdf',
-    pages: 88,
-    lastOpened: '1 week ago',
-  },
-]
+// const DUMMY_FILES = [
+//   {
+//     id: 1,
+//     name: 'Project Proposal Q3 2025.pdf',
+//     pages: 45,
+//     lastOpened: '2 hours ago',
+//   },
+//   { id: 2, name: 'Gemini-API-Guide.pdf', pages: 12, lastOpened: 'Yesterday' },
+//   {
+//     id: 3,
+//     name: 'Tax-Form-2024-Review.pdf',
+//     pages: 3,
+//     lastOpened: '3 days ago',
+//   },
+//   {
+//     id: 4,
+//     name: 'Research-Paper-on-Signals.pdf',
+//     pages: 88,
+//     lastOpened: '1 week ago',
+//   },
+// ]
 
-const FileItem: React.FC<FileItemProps> = ({ file }) => (
-  <div className="flex items-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer border border-gray-200">
+const FileItem: React.FC<PdfEntry> = ({ id, file_name }) => (
+  <div
+    key={id}
+    className="flex items-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer border border-gray-200"
+  >
     <FileTextIcon className="w-6 h-6 text-blue-500 mr-4 flex-shrink-0" />
     <div className="flex-grow min-w-0">
       <p className="text-base font-semibold text-gray-800 truncate">
-        {file.name}
+        {file_name}
       </p>
-      <p className="text-xs text-gray-500 mt-0.5">
+      {/* Maybe implement this l8r? TODO: */}
+      {/* <p className="text-xs text-gray-500 mt-0.5">
         {file.pages} pages • Last opened: {file.lastOpened}
-      </p>
+      </p> */}
     </div>
     <Button variant="outline" className="ml-4 flex-shrink-0">
       Open
@@ -55,7 +60,16 @@ const FileItem: React.FC<FileItemProps> = ({ file }) => (
 )
 
 const MainWindowContent = () => {
-  const [recentFiles] = useState(DUMMY_FILES)
+  const [pdfList, setPdfList] = useState<PdfEntry[]>([])
+
+  const doFetchPdfList = useCallback(async () => {
+    const list = await invoke<PdfEntry[]>('list_pdf')
+    setPdfList(list)
+  }, [])
+
+  useEffect(() => {
+    doFetchPdfList()
+  }, [doFetchPdfList])
 
   const openPdfFile = useCallback(async () => {
     const filePath = await open({
@@ -68,11 +82,10 @@ const MainWindowContent = () => {
         },
       ],
     })
-    console.log('Try!!!!')
-    const res = await invoke<string>('register_pdf', { pdfPath: filePath })
 
-    console.log('Response: ', res)
-  }, [])
+    await invoke<string>('register_pdf', { pdfPath: filePath })
+    doFetchPdfList()
+  }, [doFetchPdfList])
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 font-sans antialiased text-gray-900">
@@ -99,12 +112,12 @@ const MainWindowContent = () => {
             </h2>
 
             <div className="space-y-4">
-              {recentFiles.map(file => (
-                <FileItem key={file.name} file={file} />
+              {pdfList.map(file => (
+                <FileItem key={file.id} {...file} />
               ))}
             </div>
 
-            {recentFiles.length === 0 && (
+            {pdfList.length === 0 && (
               <div className="text-center p-10 border-2 border-dashed border-gray-300 rounded-xl mt-8">
                 <FileTextIcon className="w-12 h-12 text-gray-400 mx-auto" />
                 <p className="mt-4 text-lg font-medium text-gray-600">
