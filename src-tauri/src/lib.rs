@@ -518,7 +518,8 @@ pub fn run() {
             load_emergency_data,
             cleanup_old_recovery_files,
             pdf::register_pdf,
-            pdf::list_pdf
+            pdf::list_pdf,
+            pdf::remove_pdf
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
