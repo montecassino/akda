@@ -6,7 +6,7 @@ import {
 import { TitleBar } from '@/components/titlebar/TitleBar'
 import { LeftSideBar } from './LeftSideBar'
 import { RightSideBar } from './RightSideBar'
-import { MainWindowContent } from './MainWindowContent'
+import MainWindowContent from './MainWindowContent'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { PreferencesDialog } from '@/components/preferences/PreferencesDialog'
 import { Toaster } from 'sonner'
@@ -17,7 +17,12 @@ import { cn } from '@/lib/utils'
 
 export function MainWindow() {
   const { theme } = useTheme()
-  const { leftSidebarVisible, rightSidebarVisible } = useUIStore()
+  const {
+    leftSidebarVisible,
+    rightSidebarVisible,
+    leftSidebarDisabled,
+    rightSidebarDisabled,
+  } = useUIStore()
 
   // Set up global event listeners (keyboard shortcuts, etc.)
   useMainWindowEventListeners()
@@ -31,33 +36,45 @@ export function MainWindow() {
       <div className="flex flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
           {/* Left Sidebar */}
-          <ResizablePanel
-            defaultSize={20}
-            minSize={15}
-            maxSize={40}
-            className={cn(!leftSidebarVisible && 'hidden')}
-          >
-            <LeftSideBar />
-          </ResizablePanel>
+          {leftSidebarDisabled && (
+            <>
+              <ResizablePanel
+                defaultSize={20}
+                minSize={15}
+                maxSize={40}
+                className={cn(!leftSidebarVisible && 'hidden')}
+              >
+                <LeftSideBar />
+              </ResizablePanel>
 
-          <ResizableHandle className={cn(!leftSidebarVisible && 'hidden')} />
+              <ResizableHandle
+                className={cn(!leftSidebarVisible && 'hidden')}
+              />
+            </>
+          )}
 
           {/* Main Content */}
           <ResizablePanel defaultSize={60} minSize={30}>
             <MainWindowContent />
           </ResizablePanel>
 
-          <ResizableHandle className={cn(!rightSidebarVisible && 'hidden')} />
+          {!rightSidebarDisabled && (
+            <>
+              <ResizableHandle
+                className={cn(!rightSidebarVisible && 'hidden')}
+              />
 
-          {/* Right Sidebar */}
-          <ResizablePanel
-            defaultSize={20}
-            minSize={15}
-            maxSize={40}
-            className={cn(!rightSidebarVisible && 'hidden')}
-          >
-            <RightSideBar />
-          </ResizablePanel>
+              {/* Right Sidebar */}
+              <ResizablePanel
+                defaultSize={20}
+                minSize={15}
+                maxSize={40}
+                className={cn(!rightSidebarVisible && 'hidden')}
+              >
+                <RightSideBar />
+              </ResizablePanel>
+            </>
+          )}
         </ResizablePanelGroup>
       </div>
 
