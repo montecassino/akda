@@ -16,7 +16,7 @@ interface TitleBarProps {
   title?: string
 }
 
-export function TitleBar({ className, title = 'Pluma' }: TitleBarProps) {
+export function TitleBar({ className, title = 'Akda' }: TitleBarProps) {
   const {
     leftSidebarDisabled,
     rightSidebarDisabled,

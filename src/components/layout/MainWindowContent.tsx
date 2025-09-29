@@ -3,6 +3,7 @@ import React, { useCallback, useState } from 'react'
 import { Button } from '../ui/button'
 
 import { open } from '@tauri-apps/plugin-dialog'
+import { invoke } from '@tauri-apps/api/core'
 
 interface FileData {
   name: string
@@ -57,7 +58,7 @@ const MainWindowContent = () => {
   const [recentFiles] = useState(DUMMY_FILES)
 
   const openPdfFile = useCallback(async () => {
-    const file = await open({
+    const filePath = await open({
       multiple: false,
       directory: false,
       filters: [
@@ -68,7 +69,9 @@ const MainWindowContent = () => {
       ],
     })
     console.log('Try!!!!')
-    console.log(file)
+    const res = await invoke<string>('register_pdf', { pdfPath: filePath })
+
+    console.log('Response: ', res)
   }, [])
 
   return (

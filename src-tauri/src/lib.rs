@@ -6,6 +6,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, Manager};
 
+mod pdf;
+
 // Validation functions
 fn validate_filename(filename: &str) -> Result<(), String> {
     // Regex pattern: only alphanumeric, dash, underscore, dot
@@ -514,7 +516,9 @@ pub fn run() {
             send_native_notification,
             save_emergency_data,
             load_emergency_data,
-            cleanup_old_recovery_files
+            cleanup_old_recovery_files,
+            pdf::register_pdf,
+            pdf::list_pdf
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
