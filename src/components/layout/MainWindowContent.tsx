@@ -43,7 +43,10 @@ import { Spinner } from '../ui/shadcn-io/spinner'
 const FileItem: React.FC<PdfEntry> = ({ id, file_name, cover_url }) => (
   <div
     key={id}
-    className="flex flex-col bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+    onClick={() => console.log("Clicked PDF:", id)}
+    className="flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden cursor-pointer
+               hover:bg-gray-50 transition-colors"
+    style={{ willChange: "transform" }} // hint GPU acceleration
   >
     {/* PDF cover thumbnail */}
     <div className="relative w-full aspect-[3/4] bg-gray-100 flex items-center justify-center">
@@ -51,10 +54,11 @@ const FileItem: React.FC<PdfEntry> = ({ id, file_name, cover_url }) => (
         <img
           src={cover_url}
           alt={file_name}
-          className="w-full h-full object-cover pointer-events-none"
+          loading="lazy" // important for performance
+          className="w-full h-full object-cover"
         />
       ) : (
-        <div className="flex flex-col items-center justify-center text-gray-400 pointer-events-none">
+        <div className="flex flex-col items-center justify-center text-gray-400">
           <FileTextIcon className="w-10 h-10 mb-2" />
           <span className="text-xs">No cover</span>
         </div>
@@ -62,11 +66,12 @@ const FileItem: React.FC<PdfEntry> = ({ id, file_name, cover_url }) => (
     </div>
 
     {/* Content */}
-    <div className="flex flex-col flex-1 p-3 pointer-events-none">
+    <div className="flex flex-col flex-1 p-3">
       <p className="text-sm font-medium text-gray-800 truncate">{file_name}</p>
     </div>
   </div>
 )
+
 
 const PdfListArea = ({
   pdfList,
