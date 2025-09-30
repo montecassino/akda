@@ -28,12 +28,12 @@ export function MainWindow() {
   useMainWindowEventListeners()
 
   return (
-    <div className="flex h-screen w-full flex-col overflow-hidden rounded-xl bg-background">
+    <div className="flex h-full w-full flex-col rounded-xl bg-background">
       {/* Title Bar */}
       <TitleBar />
 
       {/* Main Content Area with Resizable Panels */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="mt-10 flex flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
           {/* Left Sidebar */}
           {leftSidebarDisabled && (

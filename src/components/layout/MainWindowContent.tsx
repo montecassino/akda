@@ -1,10 +1,12 @@
 import { BookOpenIcon, FileTextIcon, UploadIcon } from 'lucide-react'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback } from 'react'
 import { Button } from '../ui/button'
 
 import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import type { PdfEntry } from '@/types/pdf'
+import { useFetchPdfList } from '@/services/pdf'
+import { Spinner } from '../ui/shadcn-io/spinner'
 
 // interface FileData {
 //   name: string
@@ -59,17 +61,45 @@ const FileItem: React.FC<PdfEntry> = ({ id, file_name }) => (
   </div>
 )
 
+const PdfListArea = ({
+  pdfList,
+  isLoading,
+}: {
+  pdfList: PdfEntry[]
+  isLoading: boolean
+}) => {
+  if (isLoading) {
+    return <Spinner variant="ring" />
+  }
+  return (
+    <>
+      <div className="space-y-4">
+        {pdfList.map(file => (
+          <FileItem key={file.id} {...file} />
+        ))}
+      </div>
+
+      {pdfList.length === 0 && (
+        <div className="text-center p-10 border-2 border-dashed border-gray-300 rounded-xl mt-8">
+          <FileTextIcon className="w-12 h-12 text-gray-400 mx-auto" />
+          <p className="mt-4 text-lg font-medium text-gray-600">
+            No recent files found.
+          </p>
+          <p className="text-sm text-gray-500">
+            Click &quot;Load a PDF Document&quot; to get started.
+          </p>
+        </div>
+      )}
+    </>
+  )
+}
+
 const MainWindowContent = () => {
-  const [pdfList, setPdfList] = useState<PdfEntry[]>([])
-
-  const doFetchPdfList = useCallback(async () => {
-    const list = await invoke<PdfEntry[]>('list_pdf')
-    setPdfList(list)
-  }, [])
-
-  useEffect(() => {
-    doFetchPdfList()
-  }, [doFetchPdfList])
+  const {
+    isLoading,
+    data: pdfList = [],
+    refetch: refetchPdfList,
+  } = useFetchPdfList()
 
   const openPdfFile = useCallback(async () => {
     const filePath = await open({
@@ -84,8 +114,8 @@ const MainWindowContent = () => {
     })
 
     await invoke<string>('register_pdf', { pdfPath: filePath })
-    doFetchPdfList()
-  }, [doFetchPdfList])
+    refetchPdfList()
+  }, [refetchPdfList])
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 font-sans antialiased text-gray-900">
@@ -111,23 +141,7 @@ const MainWindowContent = () => {
               Recently Opened Files
             </h2>
 
-            <div className="space-y-4">
-              {pdfList.map(file => (
-                <FileItem key={file.id} {...file} />
-              ))}
-            </div>
-
-            {pdfList.length === 0 && (
-              <div className="text-center p-10 border-2 border-dashed border-gray-300 rounded-xl mt-8">
-                <FileTextIcon className="w-12 h-12 text-gray-400 mx-auto" />
-                <p className="mt-4 text-lg font-medium text-gray-600">
-                  No recent files found.
-                </p>
-                <p className="text-sm text-gray-500">
-                  Click &quot;Load a PDF Document&quot; to get started.
-                </p>
-              </div>
-            )}
+            <PdfListArea pdfList={pdfList} isLoading={isLoading} />
 
             <h3 className="text-xl font-semibold mt-12 mb-4 text-gray-800">
               Tips
