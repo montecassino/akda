@@ -40,24 +40,31 @@ import { Spinner } from '../ui/shadcn-io/spinner'
 //   },
 // ]
 
-const FileItem: React.FC<PdfEntry> = ({ id, file_name }) => (
+const FileItem: React.FC<PdfEntry> = ({ id, file_name, cover_url }) => (
   <div
     key={id}
-    className="flex items-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer border border-gray-200"
+    className="flex flex-col bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
   >
-    <FileTextIcon className="w-6 h-6 text-blue-500 mr-4 flex-shrink-0" />
-    <div className="flex-grow min-w-0">
-      <p className="text-base font-semibold text-gray-800 truncate">
-        {file_name}
-      </p>
-      {/* Maybe implement this l8r? TODO: */}
-      {/* <p className="text-xs text-gray-500 mt-0.5">
-        {file.pages} pages • Last opened: {file.lastOpened}
-      </p> */}
+    {/* PDF cover thumbnail */}
+    <div className="relative w-full aspect-[3/4] bg-gray-100 flex items-center justify-center">
+      {cover_url ? (
+        <img
+          src={cover_url}
+          alt={file_name}
+          className="w-full h-full object-cover pointer-events-none"
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center text-gray-400 pointer-events-none">
+          <FileTextIcon className="w-10 h-10 mb-2" />
+          <span className="text-xs">No cover</span>
+        </div>
+      )}
     </div>
-    <Button variant="outline" className="ml-4 flex-shrink-0">
-      Open
-    </Button>
+
+    {/* Content */}
+    <div className="flex flex-col flex-1 p-3 pointer-events-none">
+      <p className="text-sm font-medium text-gray-800 truncate">{file_name}</p>
+    </div>
   </div>
 )
 
@@ -73,7 +80,7 @@ const PdfListArea = ({
   }
   return (
     <>
-      <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
         {pdfList.map(file => (
           <FileItem key={file.id} {...file} />
         ))}
@@ -138,7 +145,7 @@ const MainWindowContent = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
           <div className="w-full">
             <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">
-              Recently Opened Files
+              Your Library
             </h2>
 
             <PdfListArea pdfList={pdfList} isLoading={isLoading} />

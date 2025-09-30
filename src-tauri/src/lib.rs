@@ -436,10 +436,10 @@ pub fn run() {
             );
 
             // Set up native menu system
-            if let Err(e) = create_app_menu(app) {
-                log::error!("Failed to create app menu: {e}");
-                return Err(e);
-            }
+            // if let Err(e) = create_app_menu(app) {
+            //     log::error!("Failed to create app menu: {e}");
+            //     return Err(e);
+            // }
 
             // Set up menu event handlers
             app.on_menu_event(move |app, event| {
