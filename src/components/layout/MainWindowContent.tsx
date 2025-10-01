@@ -8,6 +8,8 @@ import type { PdfEntry } from '@/types/pdf'
 import { useFetchPdfList } from '@/services/pdf'
 import { Spinner } from '../ui/shadcn-io/spinner'
 
+import { useNavigate } from '@tanstack/react-router'
+
 // interface FileData {
 //   name: string
 //   pages: number
@@ -40,38 +42,50 @@ import { Spinner } from '../ui/shadcn-io/spinner'
 //   },
 // ]
 
-const FileItem: React.FC<PdfEntry> = ({ id, file_name, cover_url }) => (
-  <div
-    key={id}
-    onClick={() => console.log("Clicked PDF:", id)}
-    className="flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden cursor-pointer
+const FileItem: React.FC<PdfEntry> = ({
+  id,
+  file_name,
+  cover_url,
+  original_path,
+}) => {
+  const navigate = useNavigate()
+
+  return (
+    <div
+      key={id}
+      onClick={() =>
+        navigate({ to: '/editor', search: { originalPath: original_path } })
+      }
+      className="flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden cursor-pointer
                hover:bg-gray-50 transition-colors"
-    style={{ willChange: "transform" }} // hint GPU acceleration
-  >
-    {/* PDF cover thumbnail */}
-    <div className="relative w-full aspect-[3/4] bg-gray-100 flex items-center justify-center">
-      {cover_url ? (
-        <img
-          src={cover_url}
-          alt={file_name}
-          loading="lazy" // important for performance
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <div className="flex flex-col items-center justify-center text-gray-400">
-          <FileTextIcon className="w-10 h-10 mb-2" />
-          <span className="text-xs">No cover</span>
-        </div>
-      )}
-    </div>
+      style={{ willChange: 'transform' }} // hint GPU acceleration
+    >
+      {/* PDF cover thumbnail */}
+      <div className="relative w-full aspect-[3/4] bg-gray-100 flex items-center justify-center">
+        {cover_url ? (
+          <img
+            src={cover_url}
+            alt={file_name}
+            loading="lazy" // important for performance
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center text-gray-400">
+            <FileTextIcon className="w-10 h-10 mb-2" />
+            <span className="text-xs">No cover</span>
+          </div>
+        )}
+      </div>
 
-    {/* Content */}
-    <div className="flex flex-col flex-1 p-3">
-      <p className="text-sm font-medium text-gray-800 truncate">{file_name}</p>
+      {/* Content */}
+      <div className="flex flex-col flex-1 p-3">
+        <p className="text-sm font-medium text-gray-800 truncate">
+          {file_name}
+        </p>
+      </div>
     </div>
-  </div>
-)
-
+  )
+}
 
 const PdfListArea = ({
   pdfList,
@@ -130,7 +144,7 @@ const MainWindowContent = () => {
   }, [refetchPdfList])
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 font-sans antialiased text-gray-900">
+    <div className="h-full flex flex-col bg-gray-50 font-sans antialiased text-gray-900">
       {/* Header stays fixed */}
       <header className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">

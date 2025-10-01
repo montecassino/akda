@@ -6,13 +6,14 @@ import {
 import { TitleBar } from '@/components/titlebar/TitleBar'
 import { LeftSideBar } from './LeftSideBar'
 import { RightSideBar } from './RightSideBar'
-import MainWindowContent from './MainWindowContent'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { PreferencesDialog } from '@/components/preferences/PreferencesDialog'
 import { Toaster } from 'sonner'
 import { useTheme } from '@/hooks/use-theme'
 import { useUIStore } from '@/store/ui-store'
 import { useMainWindowEventListeners } from '@/hooks/useMainWindowEventListeners'
+
+import { Outlet } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 
 export function MainWindow() {
@@ -28,7 +29,7 @@ export function MainWindow() {
   useMainWindowEventListeners()
 
   return (
-    <div className="flex h-full w-full flex-col rounded-xl bg-background">
+    <div className="flex h-screen w-full overflow-y-hidden flex-col rounded-xl bg-background">
       {/* Title Bar */}
       <TitleBar />
 
@@ -55,7 +56,7 @@ export function MainWindow() {
 
           {/* Main Content */}
           <ResizablePanel defaultSize={60} minSize={30}>
-            <MainWindowContent />
+            <Outlet />
           </ResizablePanel>
 
           {!rightSidebarDisabled && (
