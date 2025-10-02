@@ -31,8 +31,8 @@ interface PageDimensions {
 }
 
 export function Editor() {
-  const { originalPath } = useSearch({ from: '/editor' }) as {
-    originalPath: string
+  const { clonedPath } = useSearch({ from: '/editor' }) as {
+    clonedPath: string
   }
   const router = useRouter()
 
@@ -49,14 +49,14 @@ export function Editor() {
     const loadPdf = async () => {
       try {
         setIsLoadingPdf(true)
-        const bytes = await readFile(originalPath)
+        const bytes = await readFile(clonedPath)
         setPdfData(bytes.buffer)
       } finally {
         setIsLoadingPdf(false)
       }
     }
     loadPdf()
-  }, [originalPath])
+  }, [clonedPath])
 
   // Memoized callback for document load success
   const onDocumentLoadSuccess = useCallback(
@@ -375,7 +375,7 @@ export function Editor() {
             {!pdfData && !isLoadingPdf && (
               <p className="text-destructive">
                 Could not load document data from{' '}
-                <span className="font-mono">{originalPath}</span>
+                <span className="font-mono">{clonedPath}</span>
               </p>
             )}
           </div>

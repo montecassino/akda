@@ -45,8 +45,8 @@ import { useNavigate } from '@tanstack/react-router'
 const FileItem: React.FC<PdfEntry> = ({
   id,
   file_name,
-  cover_url,
-  original_path,
+  cover_path,
+  cloned_path,
 }) => {
   const navigate = useNavigate()
 
@@ -54,7 +54,7 @@ const FileItem: React.FC<PdfEntry> = ({
     <div
       key={id}
       onClick={() =>
-        navigate({ to: '/editor', search: { originalPath: original_path } })
+        navigate({ to: '/editor', search: { clonedPath: cloned_path } })
       }
       className="flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden cursor-pointer
                hover:bg-gray-50 transition-colors"
@@ -62,9 +62,9 @@ const FileItem: React.FC<PdfEntry> = ({
     >
       {/* PDF cover thumbnail */}
       <div className="relative w-full aspect-[3/4] bg-gray-100 flex items-center justify-center">
-        {cover_url ? (
+        {cover_path ? (
           <img
-            src={cover_url}
+            src={cover_path}
             alt={file_name}
             loading="lazy" // important for performance
             className="w-full h-full object-cover"
