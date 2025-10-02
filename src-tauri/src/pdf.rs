@@ -26,14 +26,24 @@ fn open_folder(path: &std::path::Path) -> Result<(), String> {
 pub struct PdfEntry {
     id: u64,
     original_path: String,
+    clone_path: String,
+    cover_path: String,
     file_name: String,
 }
 
 impl PdfEntry {
-    pub fn new(id: u64, original_path: String, file_name: String) -> Self {
+    pub fn new(
+        id: u64,
+        original_path: String,
+        clone_path: String,
+        cover_path: String,
+        file_name: String,
+    ) -> Self {
         Self {
             id,
             original_path,
+            clone_path,
+            cover_path,
             file_name,
         }
     }
@@ -50,6 +60,12 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
         .map_err(|e| e.to_string())?;
 
     let state_path = app_data_dir.join("pdfs.json");
+
+    if cfg!(debug_assertions) {
+        if let Some(parent) = state_path.parent() {
+            let _ = open_folder(parent);
+        }
+    }
 
     let mut pdfs: Vec<PdfEntry> = if state_path.exists() {
         let data = fs::read_to_string(&state_path).map_err(|e| e.to_string())?;
@@ -69,7 +85,22 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
         .ok_or("Invalid PDF path")?
         .to_string();
 
-    let entry = PdfEntry::new(latest_id, pdf_path.clone(), file_name);
+    let folder_name = format!("pdf_{latest_id}");
+    let folder_path = app_data_dir.join(folder_name);
+    let _clone_path = folder_path.to_str().unwrap().to_string(); // String
+    let clone_path = format!("{_clone_path}/{latest_id}.pdf");
+
+    fs::create_dir_all(&folder_path).map_err(|e| e.to_string())?;
+
+    fs::copy(&pdf_path, &clone_path).map_err(|e| e.to_string())?;
+
+    let entry = PdfEntry::new(
+        latest_id,
+        pdf_path.clone(),
+        clone_path,
+        "".to_string(),
+        file_name,
+    );
 
     pdfs.push(entry);
 
@@ -77,12 +108,6 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
     fs::create_dir_all(app_data_dir).map_err(|e| e.to_string())?;
     let serialized = serde_json::to_string_pretty(&pdfs).map_err(|e| e.to_string())?;
     fs::write(&state_path, serialized).map_err(|e| e.to_string())?;
-
-    if cfg!(debug_assertions) {
-        if let Some(parent) = state_path.parent() {
-            let _ = open_folder(parent);
-        }
-    }
 
     Ok(format!("Registered PDF {pdf_path}"))
 }
