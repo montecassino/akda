@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { Document, Page, pdfjs } from 'react-pdf'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { Document, pdfjs } from 'react-pdf'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,89 +18,17 @@ import 'react-pdf/dist/Page/TextLayer.css'
 
 import { logger } from '@/lib/logger'
 import { Spinner } from '../ui/shadcn-io/spinner'
+import MemoizedPageWrapper from './Page'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   './pdf.worker.mjs',
   import.meta.url
 ).toString()
 
-function PageWrapper({
-  pageNumber,
-  scale,
-}: {
-  pageNumber: number
-  scale: number
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-
-  useEffect(() => {
-    if (!ref.current) return
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry && entry.isIntersecting && !isVisible) {
-          setIsVisible(true)
-          // Stop observing once it's visible to prevent unnecessary work
-          observer.unobserve(entry.target)
-        }
-      },
-      {
-        // Generous rootMargin for pre-loading pages just outside the viewport
-        rootMargin: '1000px 0px',
-        threshold: 0,
-      }
-    )
-
-    observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [isVisible])
-
-  const placeholderHeight = useMemo(() => Math.round(1200 * scale), [scale])
-
-  const SkeletonPlaceholder = (
-    <div
-      style={{ height: placeholderHeight }}
-      className="my-10 flex items-center justify-center rounded-xl bg-gray-200 relative overflow-hidden shadow-inner"
-    >
-      {/* Skeleton shimmer effect */}
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
-      <span className="z-10 text-gray-500 font-medium">
-        Loading page {pageNumber}…
-      </span>
-    </div>
-  )
-
-  return (
-    <div ref={ref}>
-      {isVisible ? (
-        <Page
-          pageNumber={pageNumber}
-          scale={scale}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-          className="my-10"
-          loading={
-            <div
-              style={{ height: placeholderHeight }}
-              className="my-10 flex items-center justify-center rounded-xl bg-gray-200 relative overflow-hidden shadow-inner"
-            >
-              <span className="z-10 text-gray-500 font-medium">
-                Rendering page {pageNumber}...
-              </span>
-            </div>
-          }
-          // Note: If you want nothing at all for that brief internal render, use loading={<></>}
-        />
-      ) : (
-        // This is your lazy-load placeholder before the Page component is even mounted
-        SkeletonPlaceholder
-      )}
-    </div>
-  )
+interface PageDimensions {
+  width: number
+  height: number
 }
-
-const MemoizedPageWrapper = React.memo(PageWrapper)
 
 export function Editor() {
   const { originalPath } = useSearch({ from: '/editor' }) as {
@@ -112,6 +40,10 @@ export function Editor() {
   const [scale, setScale] = useState<number>(1.0)
   const [pdfData, setPdfData] = useState<ArrayBuffer | undefined>(undefined)
   const [isLoadingPdf, setIsLoadingPdf] = useState(true)
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const [pageDimensions, setPageDimensions] = useState<
+    Map<number, PageDimensions>
+  >(new Map())
 
   useEffect(() => {
     const loadPdf = async () => {
@@ -128,10 +60,29 @@ export function Editor() {
 
   // Memoized callback for document load success
   const onDocumentLoadSuccess = useCallback(
-    ({ numPages }: { numPages: number }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async (pdf: any) => {
+      const { numPages } = pdf
       setNumPages(numPages)
       logger.debug('Loaded PDF with pages: ', { numPages })
-      // No need to set pageNumber, as we are displaying all pages
+
+      // Fetch all page dimensions
+      const dimensions = new Map<number, PageDimensions>()
+
+      for (let i = 1; i <= numPages; i++) {
+        try {
+          const page = await pdf.getPage(i)
+          const viewport = page.getViewport({ scale: 1 })
+          dimensions.set(i, {
+            width: viewport.width,
+            height: viewport.height,
+          })
+        } catch {
+          logger.error(`Failed to get dimensions for page ${i}`)
+        }
+      }
+
+      setPageDimensions(dimensions)
     },
     []
   )
@@ -183,7 +134,7 @@ export function Editor() {
   const [showPenPalette, setShowPenPalette] = useState(false)
   const [showHighlighterPalette, setShowHighlighterPalette] = useState(false)
 
-  // Timer logic (no major perf changes needed here, just cleaner structure)
+  // Timer logic
   const penHoldTimer = useRef<number | null>(null)
   const highHoldTimer = useRef<number | null>(null)
   const HOLD_DELAY = 300
@@ -216,13 +167,11 @@ export function Editor() {
     }
   }
 
-  // Effect for closing palettes on outside click (No major optimization, just cleaner)
   useEffect(() => {
     if (!showPenPalette && !showHighlighterPalette) return
 
     function onClick(e: PointerEvent) {
       const target = e.target as HTMLElement
-      // Check both palettes in one listener
       if (showPenPalette && !target.closest('[data-pen]')) {
         setShowPenPalette(false)
       }
@@ -230,7 +179,6 @@ export function Editor() {
         setShowHighlighterPalette(false)
       }
     }
-    // Optimization: Use a single listener for both palettes
     document.addEventListener('pointerdown', onClick)
     return () => document.removeEventListener('pointerdown', onClick)
   }, [showPenPalette, showHighlighterPalette])
@@ -245,13 +193,11 @@ export function Editor() {
     setShowHighlighterPalette(false)
   }, [])
 
-  // Memoize the array of page numbers since it only changes on load
   const pageNumbers = useMemo(
     () => Array.from({ length: numPages }, (_, i) => i + 1),
     [numPages]
   )
 
-  // If the entire component should wait for the PDF file to be read
   if (isLoadingPdf && !pdfData) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-gray-50">
@@ -291,8 +237,12 @@ export function Editor() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar (Tool Panel) - Memoization is less critical here */}
         <div className="relative flex flex-col items-center gap-6 bg-muted/30 p-4 border-r w-20">
+          <div className="text-xs font-semibold mt-2">
+            {currentPage}
+            <span className="text-muted-foreground">/{numPages}</span>
+          </div>
+
           <div className="flex flex-col items-center gap-2">
             <Button
               variant="outline"
@@ -302,9 +252,11 @@ export function Editor() {
             >
               <ZoomOut className="h-4 w-4" />
             </Button>
+
             <span className="text-xs font-medium">
               {Math.round(scale * 100)}%
             </span>
+
             <Button
               variant="outline"
               size="icon"
@@ -327,7 +279,6 @@ export function Editor() {
               <MousePointer className="h-4 w-4" />
             </Button>
 
-            {/* Pen Palette */}
             <div className="relative" data-pen>
               <Button
                 variant="outline"
@@ -357,7 +308,6 @@ export function Editor() {
               )}
             </div>
 
-            {/* Highlighter Palette */}
             <div className="relative" data-highlighter>
               <Button
                 variant="outline"
@@ -398,10 +348,8 @@ export function Editor() {
           </div>
         </div>
 
-        {/* Main Content Area (PDF Viewer) */}
         <div className="flex-1 overflow-auto bg-gray-100 p-6">
           <div className="flex flex-col items-center">
-            {/* Optimization: Document only renders once pdfData is available */}
             {pdfData && (
               <Document
                 file={pdfData}
@@ -409,13 +357,19 @@ export function Editor() {
                 loading={<Spinner variant="ring" />}
                 error={<p className="text-destructive">Failed to load PDF</p>}
               >
-                {pageNumbers.map(pageNum => (
-                  <MemoizedPageWrapper
-                    key={pageNum}
-                    pageNumber={pageNum}
-                    scale={scale}
-                  />
-                ))}
+                {pageNumbers.map(pageNum => {
+                  const dims = pageDimensions.get(pageNum)
+                  return (
+                    <MemoizedPageWrapper
+                      key={pageNum}
+                      pageNumber={pageNum}
+                      scale={scale}
+                      onPageChange={setCurrentPage}
+                      pageWidth={dims?.width}
+                      pageHeight={dims?.height}
+                    />
+                  )
+                })}
               </Document>
             )}
             {!pdfData && !isLoadingPdf && (
