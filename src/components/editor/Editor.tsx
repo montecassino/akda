@@ -210,7 +210,7 @@ export function Editor() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full bg-background">
+    <div className="flex flex-col h-full w-full bg-background">
       <div className="sticky top-0 z-50 flex items-center justify-between border-b px-4 py-2 bg-muted/40">
         <div className="flex items-center gap-3">
           <Button
@@ -348,7 +348,7 @@ export function Editor() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto bg-gray-100 p-6">
+        <div className="flex-1 overflow-auto bg-gray-100">
           <div className="flex flex-col items-center">
             {pdfData && (
               <Document
