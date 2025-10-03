@@ -84,7 +84,7 @@ function PageWrapper({
   const SkeletonPlaceholder = (
     <div
       style={{ height: placeholderHeight, width: placeholderWidth }}
-      className="my-10 flex items-center justify-center rounded-xl bg-gray-200 relative overflow-hidden shadow-inner"
+      className="flex items-center justify-center rounded-xl bg-gray-200 relative overflow-hidden shadow-inner"
     >
       <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
       <span className="z-10 text-gray-500 font-medium">
@@ -101,11 +101,10 @@ function PageWrapper({
           scale={scale}
           renderTextLayer={false}
           renderAnnotationLayer={false}
-          className="my-10"
           loading={
             <div
               style={{ height: placeholderHeight, width: placeholderWidth }}
-              className="my-10 flex items-center justify-center rounded-xl bg-gray-200 relative overflow-hidden shadow-inner"
+              className="flex items-center justify-center rounded-xl bg-gray-200 relative overflow-hidden shadow-inner"
             >
               <span className="z-10 text-gray-500 font-medium">
                 Rendering page {pageNumber}...

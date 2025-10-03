@@ -12,6 +12,7 @@ import {
   ArrowLeft,
 } from 'lucide-react'
 import { useParams, useRouter } from '@tanstack/react-router'
+import { useVirtualizer } from '@tanstack/react-virtual'
 
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -28,48 +29,132 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString()
 
+interface Point {
+  x: number
+  y: number
+}
+type Stroke = Point[]
+
 function CanvasExample({
+  id,
   scale = 1.0,
   height = 400,
   width = 300,
+  strokes,
+  setStrokes,
 }: {
+  id: number
   scale?: number
   height?: number
   width?: number
+  strokes: Stroke[]
+  setStrokes: React.Dispatch<React.SetStateAction<Record<number, Stroke[]>>>
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+  const [isDrawing, setIsDrawing] = useState(false)
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+  const currentStroke = useRef<Stroke>([]) 
 
-    // Don't fill the whole canvas — keep it transparent
-
-    ctx.fillStyle = 'black'
-    ctx.font = `${20 * scale}px Arial`
-    ctx.fillText('Hello, Canvas in React!', 20 * scale, 40 * scale)
-
-    ctx.beginPath()
-    ctx.arc(100 * scale, 100 * scale, 50 * scale, 0, Math.PI * 2)
-    ctx.fillStyle = 'red'
-    ctx.fill()
-  }, [scale, height, width])
-
-  const { placeholderHeight, placeholderWidth } = usePlaceholderSize({
+  const { placeholderWidth, placeholderHeight } = usePlaceholderSize({
     scale,
     height,
     width,
   })
 
+  // redraw when scale changes
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    ctx.miterLimit = 1
+    ctx.strokeStyle = 'black'
+    ctx.lineWidth = 2 * scale
+
+    strokes.forEach(stroke => {
+      ctx.beginPath()
+      stroke.forEach((p, i) => {
+        const x = p.x * scale
+        const y = p.y * scale
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      })
+      ctx.stroke()
+    })
+  }, [scale, strokes, placeholderWidth, placeholderHeight])
+
+  const getPos = (e: React.MouseEvent<HTMLCanvasElement, MouseEvent>) => {
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return { x: 0, y: 0 }
+    return {
+      x: (e.clientX - rect.left) / scale, 
+      y: (e.clientY - rect.top) / scale,
+    }
+  }
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const pos = getPos(e)
+    currentStroke.current = [pos]
+    setIsDrawing(true)
+  }
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return
+    const pos = getPos(e)
+    currentStroke.current.push(pos)
+
+    // draw live stroke
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    ctx.miterLimit = 1
+    ctx.strokeStyle = 'black'
+    ctx.lineWidth = 2 * scale
+
+    ctx.beginPath()
+    const stroke = currentStroke.current
+    stroke.forEach((p, i) => {
+      const x = p.x * scale
+      const y = p.y * scale
+      if (i === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    })
+    ctx.stroke()
+  }
+
+  const stopDrawing = () => {
+    if (isDrawing && currentStroke.current.length > 0) {
+      setStrokes(prev => {
+        const prevPageStrokes = prev[id] ?? []
+        return {
+          ...prev,
+          [id]: [...prevPageStrokes, currentStroke.current],
+        }
+      })
+    }
+    setIsDrawing(false)
+    currentStroke.current = []
+  }
+
   return (
     <canvas
-      className="my-10"
       ref={canvasRef}
       width={placeholderWidth}
       height={placeholderHeight}
+      onMouseDown={startDrawing}
+      onMouseMove={draw}
+      onMouseUp={stopDrawing}
+      onMouseLeave={stopDrawing}
     />
   )
 }
@@ -87,6 +172,26 @@ export function Editor() {
 
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [pageDimensions, setPageDimensions] = useState<PdfPagesDimensions>({})
+
+  const [strokes, setStrokes] = useState<Record<number, Stroke[]>>({})
+
+  const parentRef = useRef<HTMLDivElement>(null)
+
+  const rowVirtualizer = useVirtualizer({
+    count: numPages,
+    getScrollElement: () => parentRef.current,
+    estimateSize: index => {
+      const dims = pageDimensions[index + 1]
+      const GAP = 24 // gap between pages in pixels
+      return (dims?.height ?? 800) * scale + GAP
+    },
+    overscan: 2,
+  })
+
+  // recalc according to scale factor
+  useEffect(() => {
+    rowVirtualizer.measure()
+  }, [scale, pageDimensions, rowVirtualizer])
 
   useEffect(() => {
     const loadPdf = async () => {
@@ -217,11 +322,6 @@ export function Editor() {
     setHighlighterColor(c)
     setShowHighlighterPalette(false)
   }, [])
-
-  const pageNumbers = useMemo(
-    () => Array.from({ length: numPages }, (_, i) => i + 1),
-    [numPages]
-  )
 
   if (isLoadingPdf && !pdfData) {
     return (
@@ -375,7 +475,7 @@ export function Editor() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto bg-gray-100">
+        <div className="flex-1 overflow-auto bg-gray-100 py-10" ref={parentRef}>
           <div className="flex flex-col items-center">
             {pdfData && (
               <Document
@@ -384,34 +484,59 @@ export function Editor() {
                 loading={<Spinner variant="ring" />}
                 error={<p className="text-destructive">Failed to load PDF</p>}
               >
-                {pageNumbers.map(pageNum => {
-                  const dims = pageDimensions[pageNum]
+                <div
+                  style={{
+                    height: rowVirtualizer.getTotalSize(),
+                    position: 'relative',
+                    width: '100%',
+                  }}
+                >
+                  {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                    const pageNum = virtualRow.index + 1
+                    const dims = pageDimensions[pageNum]
+                    const s = strokes[pageNum] ?? []
 
-                  return (
-                    <div
-                      key={pageNum}
-                      className={`relative w-[${dims && dims?.width * scale}px] h-[${dims && dims?.height * scale}px]`}
-                    >
-                      <div className="absolute inset-0 z-10">
-                        <CanvasExample
-                          scale={scale}
-                          height={dims?.height}
-                          width={dims?.width}
-                        />
+                    return (
+                      <div
+                        key={pageNum}
+                        ref={rowVirtualizer.measureElement}
+                        data-index={virtualRow.index}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: '50%',
+                          transform: `translate(-50%, ${virtualRow.start}px)`,
+                          width: 'fit-content',
+                          height: `${virtualRow.size}px`,
+                        }}
+                      >
+                        <div className="relative">
+                          <div className="absolute inset-0 z-10">
+                            <CanvasExample
+                              id={pageNum}
+                              setStrokes={setStrokes}
+                              strokes={s}
+                              scale={scale}
+                              height={dims?.height}
+                              width={dims?.width}
+                            />
+                          </div>
+
+                          <MemoizedPageWrapper
+                            pageNumber={pageNum}
+                            scale={scale}
+                            onPageChange={setCurrentPage}
+                            pageWidth={dims?.width}
+                            pageHeight={dims?.height}
+                          />
+                        </div>
                       </div>
-
-                      <MemoizedPageWrapper
-                        pageNumber={pageNum}
-                        scale={scale}
-                        onPageChange={setCurrentPage}
-                        pageWidth={dims?.width}
-                        pageHeight={dims?.height}
-                      />
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </Document>
             )}
+
             {!pdfInformation && !pdfData && !isLoadingPdf && (
               <p className="text-destructive">Could not load document data</p>
             )}
