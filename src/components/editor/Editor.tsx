@@ -21,11 +21,58 @@ import { Spinner } from '../ui/shadcn-io/spinner'
 import MemoizedPageWrapper from './Page'
 import { useLoadPdf } from '@/services/pdf'
 import type { PdfPagesDimensions } from '@/types/pdf'
+import { usePlaceholderSize } from '@/hooks/use-placeholder-size'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   './pdf.worker.mjs',
   import.meta.url
 ).toString()
+
+function CanvasExample({
+  scale = 1.0,
+  height = 400,
+  width = 300,
+}: {
+  scale?: number
+  height?: number
+  width?: number
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    // Don't fill the whole canvas — keep it transparent
+
+    ctx.fillStyle = 'black'
+    ctx.font = `${20 * scale}px Arial`
+    ctx.fillText('Hello, Canvas in React!', 20 * scale, 40 * scale)
+
+    ctx.beginPath()
+    ctx.arc(100 * scale, 100 * scale, 50 * scale, 0, Math.PI * 2)
+    ctx.fillStyle = 'red'
+    ctx.fill()
+  }, [scale, height, width])
+
+  const { placeholderHeight, placeholderWidth } = usePlaceholderSize({
+    scale,
+    height,
+    width,
+  })
+
+  return (
+    <canvas
+      className="my-10"
+      ref={canvasRef}
+      width={placeholderWidth}
+      height={placeholderHeight}
+    />
+  )
+}
 
 export function Editor() {
   const { id } = useParams({ from: '/editor/$id' })
@@ -339,15 +386,28 @@ export function Editor() {
               >
                 {pageNumbers.map(pageNum => {
                   const dims = pageDimensions[pageNum]
+
                   return (
-                    <MemoizedPageWrapper
+                    <div
                       key={pageNum}
-                      pageNumber={pageNum}
-                      scale={scale}
-                      onPageChange={setCurrentPage}
-                      pageWidth={dims?.width}
-                      pageHeight={dims?.height}
-                    />
+                      className={`relative w-[${dims && dims?.width * scale}px] h-[${dims && dims?.height * scale}px]`}
+                    >
+                      <div className="absolute inset-0 z-10">
+                        <CanvasExample
+                          scale={scale}
+                          height={dims?.height}
+                          width={dims?.width}
+                        />
+                      </div>
+
+                      <MemoizedPageWrapper
+                        pageNumber={pageNum}
+                        scale={scale}
+                        onPageChange={setCurrentPage}
+                        pageWidth={dims?.width}
+                        pageHeight={dims?.height}
+                      />
+                    </div>
                   )
                 })}
               </Document>
