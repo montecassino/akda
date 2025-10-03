@@ -20,16 +20,12 @@ import { logger } from '@/lib/logger'
 import { Spinner } from '../ui/shadcn-io/spinner'
 import MemoizedPageWrapper from './Page'
 import { useLoadPdf } from '@/services/pdf'
+import type { PdfPagesDimensions } from '@/types/pdf'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   './pdf.worker.mjs',
   import.meta.url
 ).toString()
-
-interface PageDimensions {
-  width: number
-  height: number
-}
 
 export function Editor() {
   const { id } = useParams({ from: '/editor/$id' })
@@ -43,9 +39,7 @@ export function Editor() {
   const [pdfData, setPdfData] = useState<ArrayBuffer | undefined>(undefined)
 
   const [currentPage, setCurrentPage] = useState<number>(1)
-  const [pageDimensions, setPageDimensions] = useState<
-    Map<number, PageDimensions>
-  >(new Map())
+  const [pageDimensions, setPageDimensions] = useState<PdfPagesDimensions>({})
 
   useEffect(() => {
     const loadPdf = async () => {
@@ -53,6 +47,7 @@ export function Editor() {
         try {
           const bytes = await readFile(pdfInformation.pdf_entry.clone_path)
           setPdfData(bytes.buffer)
+          setPageDimensions(pdfInformation.pdf_pages_dims)
         } catch {
           logger.error('Error in loading pdf information')
         }
@@ -62,31 +57,10 @@ export function Editor() {
     loadPdf()
   }, [pdfInformation])
 
-  // Memoized callback for document load success
   const onDocumentLoadSuccess = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async (pdf: any) => {
-      const { numPages } = pdf
+    async ({ numPages }: { numPages: number }) => {
       setNumPages(numPages)
       logger.debug('Loaded PDF with pages: ', { numPages })
-
-      // Fetch all page dimensions
-      const dimensions = new Map<number, PageDimensions>()
-
-      for (let i = 1; i <= numPages; i++) {
-        try {
-          const page = await pdf.getPage(i)
-          const viewport = page.getViewport({ scale: 1 })
-          dimensions.set(i, {
-            width: viewport.width,
-            height: viewport.height,
-          })
-        } catch {
-          logger.error(`Failed to get dimensions for page ${i}`)
-        }
-      }
-
-      setPageDimensions(dimensions)
     },
     []
   )
@@ -229,7 +203,7 @@ export function Editor() {
           <h1 className="text-sm font-medium">
             Editing Document:{' '}
             <span className="font-semibold">
-              {pdfInformation?.pdf_entry.cloned_path}
+              {pdfInformation?.pdf_entry.file_name}
             </span>
           </h1>
         </div>
@@ -364,7 +338,7 @@ export function Editor() {
                 error={<p className="text-destructive">Failed to load PDF</p>}
               >
                 {pageNumbers.map(pageNum => {
-                  const dims = pageDimensions.get(pageNum)
+                  const dims = pageDimensions[pageNum]
                   return (
                     <MemoizedPageWrapper
                       key={pageNum}
