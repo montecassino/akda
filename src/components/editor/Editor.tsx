@@ -54,7 +54,7 @@ function CanvasExample({
 
   const [isDrawing, setIsDrawing] = useState(false)
 
-  const currentStroke = useRef<Stroke>([]) 
+  const currentStroke = useRef<Stroke>([])
 
   const { placeholderWidth, placeholderHeight } = usePlaceholderSize({
     scale,
@@ -93,7 +93,7 @@ function CanvasExample({
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return { x: 0, y: 0 }
     return {
-      x: (e.clientX - rect.left) / scale, 
+      x: (e.clientX - rect.left) / scale,
       y: (e.clientY - rect.top) / scale,
     }
   }
@@ -503,10 +503,8 @@ export function Editor() {
                         data-index={virtualRow.index}
                         style={{
                           position: 'absolute',
-                          top: 0,
                           left: '50%',
                           transform: `translate(-50%, ${virtualRow.start}px)`,
-                          width: 'fit-content',
                           height: `${virtualRow.size}px`,
                         }}
                       >
