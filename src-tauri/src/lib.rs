@@ -1,12 +1,14 @@
+mod pdf;
+mod state;
+
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, Manager};
 
-mod pdf;
+use crate::state::AppState;
 
 // Validation functions
 fn validate_filename(filename: &str) -> Result<(), String> {
@@ -346,54 +348,54 @@ async fn cleanup_old_recovery_files(app: AppHandle) -> Result<u32, String> {
 }
 
 // Create the native menu system
-fn create_app_menu(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    log::info!("Setting up native menu system");
+// fn create_app_menu(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+//     log::info!("Setting up native menu system");
 
-    // Build the main application submenu
-    let app_submenu = SubmenuBuilder::new(app, "Tauri Template")
-        .item(&MenuItemBuilder::with_id("about", "About Tauri Template").build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("check-updates", "Check for Updates...").build(app)?)
-        .separator()
-        .item(
-            &MenuItemBuilder::with_id("preferences", "Preferences...")
-                .accelerator("CmdOrCtrl+,")
-                .build(app)?,
-        )
-        .separator()
-        .item(&PredefinedMenuItem::hide(app, Some("Hide Tauri Template"))?)
-        .item(&PredefinedMenuItem::hide_others(app, None)?)
-        .item(&PredefinedMenuItem::show_all(app, None)?)
-        .separator()
-        .item(&PredefinedMenuItem::quit(app, Some("Quit Tauri Template"))?)
-        .build()?;
+//     // Build the main application submenu
+//     let app_submenu = SubmenuBuilder::new(app, "Tauri Template")
+//         .item(&MenuItemBuilder::with_id("about", "About Tauri Template").build(app)?)
+//         .separator()
+//         .item(&MenuItemBuilder::with_id("check-updates", "Check for Updates...").build(app)?)
+//         .separator()
+//         .item(
+//             &MenuItemBuilder::with_id("preferences", "Preferences...")
+//                 .accelerator("CmdOrCtrl+,")
+//                 .build(app)?,
+//         )
+//         .separator()
+//         .item(&PredefinedMenuItem::hide(app, Some("Hide Tauri Template"))?)
+//         .item(&PredefinedMenuItem::hide_others(app, None)?)
+//         .item(&PredefinedMenuItem::show_all(app, None)?)
+//         .separator()
+//         .item(&PredefinedMenuItem::quit(app, Some("Quit Tauri Template"))?)
+//         .build()?;
 
-    // Build the View submenu
-    let view_submenu = SubmenuBuilder::new(app, "View")
-        .item(
-            &MenuItemBuilder::with_id("toggle-left-sidebar", "Toggle Left Sidebar")
-                .accelerator("CmdOrCtrl+1")
-                .build(app)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("toggle-right-sidebar", "Toggle Right Sidebar")
-                .accelerator("CmdOrCtrl+2")
-                .build(app)?,
-        )
-        .build()?;
+//     // Build the View submenu
+//     let view_submenu = SubmenuBuilder::new(app, "View")
+//         .item(
+//             &MenuItemBuilder::with_id("toggle-left-sidebar", "Toggle Left Sidebar")
+//                 .accelerator("CmdOrCtrl+1")
+//                 .build(app)?,
+//         )
+//         .item(
+//             &MenuItemBuilder::with_id("toggle-right-sidebar", "Toggle Right Sidebar")
+//                 .accelerator("CmdOrCtrl+2")
+//                 .build(app)?,
+//         )
+//         .build()?;
 
-    // Build the main menu with submenus
-    let menu = MenuBuilder::new(app)
-        .item(&app_submenu)
-        .item(&view_submenu)
-        .build()?;
+//     // Build the main menu with submenus
+//     let menu = MenuBuilder::new(app)
+//         .item(&app_submenu)
+//         .item(&view_submenu)
+//         .build()?;
 
-    // Set the menu for the app
-    app.set_menu(menu)?;
+//     // Set the menu for the app
+//     app.set_menu(menu)?;
 
-    log::info!("Native menu system initialized successfully");
-    Ok(())
-}
+//     log::info!("Native menu system initialized successfully");
+//     Ok(())
+// }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -507,6 +509,19 @@ pub fn run() {
             log::warn!("This is a warning message");
             // log::error!("This is an error message");
 
+            // Setup pdfium
+            let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            let pdfium_dir = project_root.join("pdfium-libs");
+            let lib_path = if cfg!(target_os = "windows") {
+                pdfium_dir.join("windows")
+            } else if cfg!(target_os = "macos") {
+                pdfium_dir.join("macos")
+            } else {
+                pdfium_dir.join("linux")
+            };
+
+            app.manage(AppState { lib_path });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -519,7 +534,8 @@ pub fn run() {
             cleanup_old_recovery_files,
             pdf::register_pdf,
             pdf::list_pdf,
-            pdf::remove_pdf
+            pdf::remove_pdf,
+            pdf::load_pdf
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

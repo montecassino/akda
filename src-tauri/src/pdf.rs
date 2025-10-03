@@ -1,5 +1,8 @@
+use crate::state::AppState;
+use pdfium_render::prelude::Pdfium;
 use serde::{Deserialize, Serialize};
-use std::{fs, path::Path, process::Command};
+use serde::de::{self, Deserializer};
+use std::{collections::HashMap, fs, path::Path, process::Command};
 use tauri::Manager;
 
 fn open_folder(path: &std::path::Path) -> Result<(), String> {
@@ -22,7 +25,7 @@ fn open_folder(path: &std::path::Path) -> Result<(), String> {
     Ok(())
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PdfEntry {
     id: u64,
     original_path: String,
@@ -45,6 +48,67 @@ impl PdfEntry {
             clone_path,
             cover_path,
             file_name,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Dimensions {
+    height: f32,
+    width: f32,
+}
+
+impl Dimensions {
+    pub fn new(height: f32, width: f32) -> Self {
+        Self { height, width }
+    }
+}
+
+fn string_key_to_u32<'de, D>(deserializer: D) -> Result<HashMap<u32, Dimensions>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let map: HashMap<String, Dimensions> = HashMap::deserialize(deserializer)?;
+    map.into_iter()
+        .map(|(k, v)| {
+            k.parse::<u32>()
+                .map(|k| (k, v))
+                .map_err(|_| de::Error::custom(format!("Invalid key: {}", k)))
+        })
+        .collect()
+}
+
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct PdfPagesDimensions {
+    #[serde(flatten)]
+    #[serde(deserialize_with = "string_key_to_u32")]
+    inner: HashMap<u32, Dimensions>,
+}
+
+impl PdfPagesDimensions {
+    pub fn new() -> Self {
+        Self {
+            inner: HashMap::new(),
+        }
+    }
+
+    fn insert(&mut self, page: u32, dim: Dimensions) {
+        self.inner.insert(page, dim);
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct LoadPdfResponse {
+    pdf_entry: PdfEntry,
+    pdf_pages_dims: PdfPagesDimensions,
+}
+
+impl LoadPdfResponse {
+    pub fn new(pdf_entry: PdfEntry, pdf_pages_dims: PdfPagesDimensions) -> Self {
+        Self {
+            pdf_entry,
+            pdf_pages_dims,
         }
     }
 }
@@ -158,4 +222,68 @@ pub fn remove_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<bool, String>
     } else {
         Ok(false)
     }
+}
+
+#[tauri::command]
+pub fn load_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<LoadPdfResponse, String> {
+    log::info!("Loading pdf: {id}");
+
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let state_path = app_data_dir.join("pdfs.json");
+
+    let pdfs: Vec<PdfEntry> = if state_path.exists() {
+        let data = fs::read_to_string(&state_path).map_err(|e| e.to_string())?;
+        serde_json::from_str::<Vec<PdfEntry>>(&data).map_err(|e| e.to_string())?
+    } else {
+        Vec::new()
+    };
+
+    let pdf_entry = match pdfs.binary_search_by(|pdf| pdf.id.cmp(&id)) {
+        Ok(index) => Ok(pdfs[index].clone()),
+        Err(_) => Err(format!("PDF with id {id} not found")),
+    }?;
+
+    let dims_path = app_data_dir.join(format!("pdf_{id}/dims.json"));
+
+    if !dims_path.exists() {
+        let mut pdf_pages_dims: PdfPagesDimensions = PdfPagesDimensions::new();
+
+        let state = app_handle.state::<AppState>();
+
+        let pdfium_path = &state.lib_path;
+
+        let pdfium = Pdfium::new(
+            Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(pdfium_path))
+                .or_else(|_| Pdfium::bind_to_system_library())
+                .unwrap(), // Or use the ? unwrapping operator to pass any error up to the caller
+        );
+
+        let document = pdfium
+            .load_pdf_from_file(&pdf_entry.clone_path, None)
+            .map_err(|e| e.to_string())?;
+
+        for (i, page) in document.pages().iter().enumerate() {
+            let size = page.page_size();
+            let height = size.height().value;
+            let width = size.width().value;
+            let page_no = i as u32 + 1;
+            pdf_pages_dims.insert(page_no, Dimensions::new(height, width));
+        }
+
+        // store it
+        let serialized =
+            serde_json::to_string_pretty(&pdf_pages_dims).map_err(|e| e.to_string())?;
+        fs::write(&dims_path, serialized).map_err(|e| e.to_string())?;
+
+        let response = LoadPdfResponse::new(pdf_entry, pdf_pages_dims);
+        return Ok(response);
+    }
+    let data = fs::read_to_string(&dims_path).map_err(|e| e.to_string())?;
+    let pdf_pages_dims =
+        serde_json::from_str::<PdfPagesDimensions>(&data).map_err(|e| e.to_string())?;
+    Ok(LoadPdfResponse::new(pdf_entry, pdf_pages_dims))
 }

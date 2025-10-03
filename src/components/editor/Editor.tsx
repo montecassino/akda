@@ -11,7 +11,7 @@ import {
   MousePointer,
   ArrowLeft,
 } from 'lucide-react'
-import { useRouter, useSearch } from '@tanstack/react-router'
+import { useParams, useRouter } from '@tanstack/react-router'
 
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -19,6 +19,7 @@ import 'react-pdf/dist/Page/TextLayer.css'
 import { logger } from '@/lib/logger'
 import { Spinner } from '../ui/shadcn-io/spinner'
 import MemoizedPageWrapper from './Page'
+import { useLoadPdf } from '@/services/pdf'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   './pdf.worker.mjs',
@@ -31,15 +32,16 @@ interface PageDimensions {
 }
 
 export function Editor() {
-  const { clonedPath } = useSearch({ from: '/editor' }) as {
-    clonedPath: string
-  }
+  const { id } = useParams({ from: '/editor/$id' })
+  const { isLoading: isLoadingPdf, data: pdfInformation } = useLoadPdf(
+    parseInt(id)
+  )
   const router = useRouter()
 
   const [numPages, setNumPages] = useState<number>(0)
   const [scale, setScale] = useState<number>(1.0)
   const [pdfData, setPdfData] = useState<ArrayBuffer | undefined>(undefined)
-  const [isLoadingPdf, setIsLoadingPdf] = useState(true)
+
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [pageDimensions, setPageDimensions] = useState<
     Map<number, PageDimensions>
@@ -47,16 +49,18 @@ export function Editor() {
 
   useEffect(() => {
     const loadPdf = async () => {
-      try {
-        setIsLoadingPdf(true)
-        const bytes = await readFile(clonedPath)
-        setPdfData(bytes.buffer)
-      } finally {
-        setIsLoadingPdf(false)
+      if (pdfInformation) {
+        try {
+          const bytes = await readFile(pdfInformation.pdf_entry.clone_path)
+          setPdfData(bytes.buffer)
+        } catch {
+          logger.error('Error in loading pdf information')
+        }
       }
     }
+
     loadPdf()
-  }, [clonedPath])
+  }, [pdfInformation])
 
   // Memoized callback for document load success
   const onDocumentLoadSuccess = useCallback(
@@ -224,7 +228,9 @@ export function Editor() {
           </Button>
           <h1 className="text-sm font-medium">
             Editing Document:{' '}
-            <span className="font-semibold">{originalPath}</span>
+            <span className="font-semibold">
+              {pdfInformation?.pdf_entry.cloned_path}
+            </span>
           </h1>
         </div>
 
@@ -372,11 +378,8 @@ export function Editor() {
                 })}
               </Document>
             )}
-            {!pdfData && !isLoadingPdf && (
-              <p className="text-destructive">
-                Could not load document data from{' '}
-                <span className="font-mono">{clonedPath}</span>
-              </p>
+            {!pdfInformation && !pdfData && !isLoadingPdf && (
+              <p className="text-destructive">Could not load document data</p>
             )}
           </div>
         </div>

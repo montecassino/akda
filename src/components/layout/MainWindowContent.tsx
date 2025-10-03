@@ -42,20 +42,13 @@ import { useNavigate } from '@tanstack/react-router'
 //   },
 // ]
 
-const FileItem: React.FC<PdfEntry> = ({
-  id,
-  file_name,
-  cover_path,
-  cloned_path,
-}) => {
+const FileItem: React.FC<PdfEntry> = ({ id, file_name, cover_path }) => {
   const navigate = useNavigate()
 
   return (
     <div
       key={id}
-      onClick={() =>
-        navigate({ to: '/editor', search: { clonedPath: cloned_path } })
-      }
+      onClick={() => navigate({ to: '/editor/$id', params: { id } })}
       className="flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden cursor-pointer
                hover:bg-gray-50 transition-colors"
       style={{ willChange: 'transform' }} // hint GPU acceleration

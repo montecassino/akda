@@ -18,7 +18,7 @@ export const homeRoute = createRoute({
 })
 
 export const editorRoute = createRoute({
-  path: '/editor',
+  path: '/editor/$id',
   component: Editor,
   getParentRoute: () => rootRoute,
 })

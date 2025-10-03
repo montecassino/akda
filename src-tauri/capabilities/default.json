@@ -18,6 +18,10 @@
     "clipboard-manager:default",
     "dialog:default",
     "fs:default",
+    {
+      "identifier": "fs:allow-appdata-read-recursive",
+      "allow": [{ "path": "$APPDATA/*" }]
+    },
     "log:default",
     "notification:default",
     "process:default"
