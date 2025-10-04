@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { Document, pdfjs } from 'react-pdf'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { Button } from '@/components/ui/button'
+
 import {
   Pencil,
   Highlighter,
@@ -23,7 +24,7 @@ import MemoizedPageWrapper from './Page'
 import { useLoadPdf } from '@/services/pdf'
 import type { PdfPagesDimensions } from '@/types/pdf'
 import { MemoizedCanvas } from './Canvas'
-import type { Stroke } from '@/types/editor'
+import type { Stroke, ToolType } from '@/types/editor'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   './pdf.worker.mjs',
@@ -41,9 +42,7 @@ export function Editor() {
   const [scale, setScale] = useState<number>(1.0)
   const [pdfData, setPdfData] = useState<ArrayBuffer | undefined>(undefined)
 
-  const [currentTool, setCurrentTool] = useState<
-    'pointer' | 'pen' | 'highlighter' | 'eraser'
-  >('pointer')
+  const [currentTool, setCurrentTool] = useState<ToolType>('pointer')
 
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [pageDimensions, setPageDimensions] = useState<PdfPagesDimensions>({})
@@ -391,6 +390,7 @@ export function Editor() {
                           <div className="absolute inset-0 z-10">
                             <MemoizedCanvas
                               id={pageNum}
+                              tool={currentTool}
                               setStrokes={setStrokes}
                               strokes={s}
                               scale={scale}
