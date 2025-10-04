@@ -12,6 +12,11 @@ interface Props {
   width?: number
   strokes: Stroke[]
   setStrokes: React.Dispatch<React.SetStateAction<Record<number, Stroke[]>>>
+  penColor: string
+  highlighterColor: string
+  penThickness: number
+  highlighterThickness: number
+  eraserThickness: number
 }
 
 function Canvas({
@@ -22,6 +27,11 @@ function Canvas({
   width = 300,
   strokes,
   setStrokes,
+  penColor,
+  penThickness,
+  highlighterColor,
+  highlighterThickness,
+  eraserThickness,
 }: Props) {
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null) // background (all committed strokes)
   const liveCanvasRef = useRef<HTMLCanvasElement | null>(null) // overlay (live stroke)
@@ -84,9 +94,22 @@ function Canvas({
     if (tool === 'pointer') return
     const pos = getPos(e)
 
-    strokeBuilderRef.current = new StrokeBuilder(tool)
-    strokeBuilderRef.current.addPoint(pos.x, pos.y)
+    const builder = new StrokeBuilder(tool)
 
+    if (tool === 'pen') {
+      builder.setColor(penColor).setOpacity(1).setThickness(penThickness)
+    } else if (tool === 'highlighter') {
+      builder
+        .setColor(highlighterColor)
+        .setOpacity(0.3)
+        .setThickness(highlighterThickness)
+    } else if (tool === 'eraser') {
+      // set color doesnt matter btw just for 'formality' lmao
+      builder.setColor('#000000').setOpacity(1).setThickness(eraserThickness)
+    }
+
+    builder.addPoint(pos.x, pos.y)
+    strokeBuilderRef.current = builder
     setIsDrawing(true)
   }
 

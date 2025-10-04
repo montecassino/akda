@@ -25,6 +25,7 @@ import { useLoadPdf } from '@/services/pdf'
 import type { PdfPagesDimensions } from '@/types/pdf'
 import { MemoizedCanvas } from './Canvas'
 import type { Stroke, ToolType } from '@/types/editor'
+import { cn } from '@/lib/utils'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   './pdf.worker.mjs',
@@ -137,6 +138,13 @@ export function Editor() {
   )
   const [showPenPalette, setShowPenPalette] = useState(false)
   const [showHighlighterPalette, setShowHighlighterPalette] = useState(false)
+  const [showEraserThickness, setShowEraserThickness] = useState(false)
+
+  const [penThickness, setPenThickness] = useState<number>(2)
+  const [highlighterThickness, setHighlighterThickness] = useState<number>(12)
+  const [eraserThickness, setEraserThickness] = useState<number>(10)
+
+  const thicknessOptions = useMemo(() => [1, 2, 4, 8, 12, 20], [])
 
   // Timer logic
   const penHoldTimer = useRef<number | null>(null)
@@ -171,8 +179,23 @@ export function Editor() {
     }
   }
 
+  const onEraserPointerDown = () => {
+    if (highHoldTimer.current) window.clearTimeout(highHoldTimer.current)
+    highHoldTimer.current = window.setTimeout(
+      () => setShowEraserThickness(true),
+      HOLD_DELAY
+    )
+  }
+  const onEraserPointerUpOrLeave = () => {
+    if (!showHighlighterPalette && highHoldTimer.current) {
+      window.clearTimeout(highHoldTimer.current)
+      highHoldTimer.current = null
+    }
+  }
+
   useEffect(() => {
-    if (!showPenPalette && !showHighlighterPalette) return
+    if (!showPenPalette && !showHighlighterPalette && !showEraserThickness)
+      return
 
     function onClick(e: PointerEvent) {
       const target = e.target as HTMLElement
@@ -182,10 +205,14 @@ export function Editor() {
       if (showHighlighterPalette && !target.closest('[data-highlighter]')) {
         setShowHighlighterPalette(false)
       }
+
+      if (showEraserThickness && !target.closest('[data-eraser]')) {
+        setShowEraserThickness(false)
+      }
     }
     document.addEventListener('pointerdown', onClick)
     return () => document.removeEventListener('pointerdown', onClick)
-  }, [showPenPalette, showHighlighterPalette])
+  }, [showPenPalette, showHighlighterPalette, showEraserThickness])
 
   const pickPenColor = useCallback((c: string) => {
     setPenColor(c)
@@ -298,15 +325,37 @@ export function Editor() {
                 style={{ backgroundColor: penColor }}
               />
               {showPenPalette && (
-                <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 flex items-center gap-2 rounded-md p-2 shadow-lg bg-popover border">
-                  {colors.map(c => (
-                    <button
-                      key={c}
-                      className="w-6 h-6 rounded-full border"
-                      style={{ backgroundColor: c }}
-                      onClick={() => pickPenColor(c)}
-                    />
-                  ))}
+                <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-3 rounded-md p-2 shadow-lg bg-popover border">
+                  <div className="flex items-center gap-2">
+                    {thicknessOptions.map(t => (
+                      <button
+                        key={t}
+                        className={cn(
+                          'flex items-center justify-center border rounded-full',
+                          penThickness === t &&
+                            'border-blue-500 ring-2 ring-blue-300'
+                        )}
+                        style={{ width: 28, height: 28 }}
+                        onClick={() => setPenThickness(t)}
+                      >
+                        <div
+                          className="rounded-full bg-black"
+                          style={{ width: t, height: t }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {colors.map(c => (
+                      <button
+                        key={c}
+                        className="w-6 h-6 rounded-full border"
+                        style={{ backgroundColor: c }}
+                        onClick={() => pickPenColor(c)}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -328,28 +377,84 @@ export function Editor() {
                 style={{ backgroundColor: highlighterColor }}
               />
               {showHighlighterPalette && (
-                <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 flex items-center gap-2 rounded-md p-2 shadow-lg bg-popover border">
-                  {colors.map(c => (
-                    <button
-                      key={c}
-                      className="w-6 h-6 rounded-full border opacity-80"
-                      style={{ backgroundColor: c }}
-                      onClick={() => pickHighColor(c)}
-                    />
-                  ))}
+                <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-3 rounded-md p-2 shadow-lg bg-popover border">
+                  <div className="flex items-center gap-2">
+                    {thicknessOptions.map(t => (
+                      <button
+                        key={t}
+                        className={cn(
+                          'flex items-center justify-center border rounded-full',
+                          highlighterThickness === t &&
+                            'border-blue-500 ring-2 ring-blue-300'
+                        )}
+                        style={{ width: 28, height: 28 }}
+                        onClick={() => setHighlighterThickness(t)}
+                      >
+                        <div
+                          className="rounded-full bg-black"
+                          style={{ width: t, height: t }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Color options BELOW */}
+                  <div className="flex items-center gap-2">
+                    {colors.map(c => (
+                      <button
+                        key={c}
+                        className="w-6 h-6 rounded-full border opacity-80"
+                        style={{ backgroundColor: c }}
+                        onClick={() => pickHighColor(c)}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            <Button
-              variant={currentTool === 'eraser' ? 'default' : 'outline'}
-              size="icon"
-              aria-label="Eraser"
-              title="Eraser"
-              onClick={() => setCurrentTool('eraser')}
-            >
-              <Eraser className="h-4 w-4" />
-            </Button>
+            <div className="relative" data-eraser>
+              <Button
+                variant={currentTool === 'eraser' ? 'default' : 'outline'}
+                size="icon"
+                aria-label="Eraser"
+                title="Eraser"
+                onClick={() => setCurrentTool('eraser')}
+                onPointerDown={onEraserPointerDown}
+                onPointerUp={onEraserPointerUpOrLeave}
+                onPointerLeave={onEraserPointerUpOrLeave}
+                onContextMenu={e => {
+                  e.preventDefault()
+                  setShowEraserThickness(prev => !prev)
+                }}
+              >
+                <Eraser className="h-4 w-4" />
+              </Button>
+
+              {showEraserThickness && (
+                <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-3 rounded-md p-2 shadow-lg bg-popover border">
+                  <div className="flex items-center gap-2">
+                    {thicknessOptions.map(t => (
+                      <button
+                        key={t}
+                        className={cn(
+                          'flex items-center justify-center border rounded-full',
+                          eraserThickness === t &&
+                            'border-blue-500 ring-2 ring-blue-300'
+                        )}
+                        style={{ width: 28, height: 28 }}
+                        onClick={() => setEraserThickness(t)}
+                      >
+                        <div
+                          className="rounded-full bg-gray-400"
+                          style={{ width: t, height: t }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -396,6 +501,11 @@ export function Editor() {
                               scale={scale}
                               height={dims?.height}
                               width={dims?.width}
+                              penColor={penColor}
+                              highlighterColor={highlighterColor}
+                              penThickness={penThickness}
+                              highlighterThickness={highlighterThickness}
+                              eraserThickness={eraserThickness}
                             />
                           </div>
 
