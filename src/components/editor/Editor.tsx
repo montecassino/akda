@@ -170,6 +170,10 @@ export function Editor() {
   const [scale, setScale] = useState<number>(1.0)
   const [pdfData, setPdfData] = useState<ArrayBuffer | undefined>(undefined)
 
+  const [currentTool, setCurrentTool] = useState<
+    'pointer' | 'pen' | 'highlighter' | 'eraser'
+  >('pointer')
+
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [pageDimensions, setPageDimensions] = useState<PdfPagesDimensions>({})
 
@@ -398,18 +402,20 @@ export function Editor() {
 
           <div className="flex flex-col items-center gap-4">
             <Button
-              variant="outline"
+              variant={currentTool === 'pointer' ? 'default' : 'outline'}
               size="icon"
               aria-label="Pointer"
               title="Pointer"
+              onClick={() => setCurrentTool('pointer')}
             >
               <MousePointer className="h-4 w-4" />
             </Button>
 
             <div className="relative" data-pen>
               <Button
-                variant="outline"
+                variant={currentTool === 'pen' ? 'default' : 'outline'}
                 size="icon"
+                onClick={() => setCurrentTool('pen')}
                 onPointerDown={onPenPointerDown}
                 onPointerUp={onPenPointerUpOrLeave}
                 onPointerLeave={onPenPointerUpOrLeave}
@@ -437,8 +443,9 @@ export function Editor() {
 
             <div className="relative" data-highlighter>
               <Button
-                variant="outline"
+                variant={currentTool === 'highlighter' ? 'default' : 'outline'}
                 size="icon"
+                onClick={() => setCurrentTool('highlighter')}
                 onPointerDown={onHighPointerDown}
                 onPointerUp={onHighPointerUpOrLeave}
                 onPointerLeave={onHighPointerUpOrLeave}
@@ -465,10 +472,11 @@ export function Editor() {
             </div>
 
             <Button
-              variant="outline"
+              variant={currentTool === 'eraser' ? 'default' : 'outline'}
               size="icon"
               aria-label="Eraser"
               title="Eraser"
+              onClick={() => setCurrentTool('eraser')}
             >
               <Eraser className="h-4 w-4" />
             </Button>
