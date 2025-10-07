@@ -1,3 +1,5 @@
+import type { Stroke } from './editor'
+
 export interface PdfEntry {
   id: string
   original_path: string
@@ -12,6 +14,7 @@ export interface Dimensions {
 }
 
 export type PdfPagesDimensions = Record<number, Dimensions>
+export type PdfStrokes = Record<number, Stroke[]>
 
 export interface LoadPdfResponse {
   pdf_entry: PdfEntry

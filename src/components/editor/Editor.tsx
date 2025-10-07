@@ -21,7 +21,11 @@ import 'react-pdf/dist/Page/TextLayer.css'
 import { logger } from '@/lib/logger'
 import { Spinner } from '../ui/shadcn-io/spinner'
 import MemoizedPageWrapper from './Page'
-import { useLoadPdf, useSavePdfStrokes } from '@/services/pdf'
+import {
+  useLoadPdf,
+  useLoadPdfStrokes,
+  useSavePdfStrokes,
+} from '@/services/pdf'
 import type { PdfPagesDimensions } from '@/types/pdf'
 import { MemoizedCanvas } from './Canvas'
 import type { Stroke, ToolType } from '@/types/editor'
@@ -37,6 +41,8 @@ export function Editor() {
   const { isLoading: isLoadingPdf, data: pdfInformation } = useLoadPdf(
     parseInt(pdfId)
   )
+  const { data: _strokes = {} } = useLoadPdfStrokes(parseInt(pdfId))
+
   const { mutate: mutateSavePdfStrokes } = useSavePdfStrokes()
 
   const router = useRouter()
@@ -69,6 +75,10 @@ export function Editor() {
   useEffect(() => {
     rowVirtualizer.measure()
   }, [scale, pageDimensions, rowVirtualizer])
+
+  useEffect(() => {
+    setStrokes(_strokes)
+  }, [_strokes])
 
   useEffect(() => {
     const loadPdf = async () => {

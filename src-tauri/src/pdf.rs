@@ -1,7 +1,7 @@
 use crate::state::AppState;
 use pdfium_render::prelude::Pdfium;
-use serde::{Deserialize, Serialize};
 use serde::de::{self, Deserializer};
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::Path, process::Command};
 use tauri::Manager;
 
@@ -52,28 +52,27 @@ impl PdfEntry {
     }
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
-pub enum  DrawingToolType {
+pub enum DrawingToolType {
     Pen,
     Highlighter,
-    Eraser
+    Eraser,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StrokePath {
     x: f64,
-    y: f64
+    y: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Stroke {
-    tool : DrawingToolType,
+    tool: DrawingToolType,
     color: String,
     opacity: f64,
     thickness: u64,
-    path: Vec<StrokePath>
+    path: Vec<StrokePath>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -94,7 +93,6 @@ impl PdfStrokes {
         self.inner.entry(page).or_insert_with(Vec::new).push(stroke);
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Dimensions {
@@ -122,7 +120,6 @@ where
         })
         .collect()
 }
-
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PdfPagesDimensions {
@@ -294,7 +291,7 @@ pub fn load_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<LoadPdfResponse
 
     let dims_path = app_data_dir.join(format!("pdf_{id}/dims.json"));
 
-    if !dims_path.exists() {
+    let pdf_pages_dims = if !dims_path.exists() {
         let mut pdf_pages_dims: PdfPagesDimensions = PdfPagesDimensions::new();
 
         let state = app_handle.state::<AppState>();
@@ -324,17 +321,24 @@ pub fn load_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<LoadPdfResponse
             serde_json::to_string_pretty(&pdf_pages_dims).map_err(|e| e.to_string())?;
         fs::write(&dims_path, serialized).map_err(|e| e.to_string())?;
 
-        let response = LoadPdfResponse::new(pdf_entry, pdf_pages_dims);
-        return Ok(response);
-    }
-    let data = fs::read_to_string(&dims_path).map_err(|e| e.to_string())?;
-    let pdf_pages_dims =
-        serde_json::from_str::<PdfPagesDimensions>(&data).map_err(|e| e.to_string())?;
+        pdf_pages_dims
+    } else {
+        let data = fs::read_to_string(&dims_path).map_err(|e| e.to_string())?;
+        let pdf_pages_dims =
+            serde_json::from_str::<PdfPagesDimensions>(&data).map_err(|e| e.to_string())?;
+        pdf_pages_dims
+    };
+
     Ok(LoadPdfResponse::new(pdf_entry, pdf_pages_dims))
 }
 
 #[tauri::command]
-pub fn save_pdf_strokes(app_handle: tauri::AppHandle, pdf_id: u32, page_id: u32, stroke: Stroke) -> Result<bool, String> {
+pub fn save_pdf_strokes(
+    app_handle: tauri::AppHandle,
+    pdf_id: u32,
+    page_id: u32,
+    stroke: Stroke,
+) -> Result<bool, String> {
     log::info!("Saving pdf strokes: {pdf_id}");
 
     // This will handle platform specific app data directories
@@ -366,4 +370,26 @@ pub fn save_pdf_strokes(app_handle: tauri::AppHandle, pdf_id: u32, page_id: u32,
     fs::write(&strokes_path, serialized).map_err(|e| e.to_string())?;
 
     Ok(true)
+}
+
+#[tauri::command]
+pub fn load_pdf_strokes(app_handle: tauri::AppHandle, pdf_id: u32) -> Result<PdfStrokes, String> {
+    log::info!("Loading pdf strokes: {pdf_id}");
+
+    // This will handle platform specific app data directories
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let strokes_path = app_data_dir.join(format!("pdf_{pdf_id}/strokes.json"));
+
+    let strokes: PdfStrokes = if strokes_path.exists() {
+        let data = fs::read_to_string(&strokes_path).map_err(|e| e.to_string())?;
+        serde_json::from_str::<PdfStrokes>(&data).map_err(|e| e.to_string())?
+    } else {
+        PdfStrokes::new()
+    };
+
+    Ok(strokes)
 }

@@ -536,7 +536,8 @@ pub fn run() {
             pdf::list_pdf,
             pdf::remove_pdf,
             pdf::load_pdf,
-            pdf::save_pdf_strokes
+            pdf::save_pdf_strokes,
+            pdf::load_pdf_strokes
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

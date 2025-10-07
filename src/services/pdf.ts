@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@/lib/logger'
-import type { LoadPdfResponse, PdfEntry } from '@/types/pdf'
+import type { LoadPdfResponse, PdfEntry, PdfStrokes } from '@/types/pdf'
 import { toast } from 'sonner'
 import type { Stroke } from '@/types/editor'
 
@@ -12,6 +12,8 @@ export const pdfQueryKeys = {
   loadPdf: (id: number) => [...pdfQueryKeys.all, id] as const,
   savePdfStrokes: (id: number) =>
     [...pdfQueryKeys.all, 'save_pdf_strokes', id] as const,
+  loadPdfStrokes: (id: number) =>
+    [...pdfQueryKeys.all, 'pdf_strokes', id] as const,
 }
 
 // TanStack Query hooks following the architectural patterns
@@ -55,9 +57,40 @@ export function useLoadPdf(id: number) {
   })
 }
 
+export function useLoadPdfStrokes(id: number) {
+  return useQuery({
+    queryKey: pdfQueryKeys.loadPdfStrokes(id),
+    queryFn: async (): Promise<PdfStrokes> => {
+      try {
+        logger.debug('Loading pdf strokes from backend')
+
+        const response = await invoke<PdfStrokes>('load_pdf_strokes', {
+          pdfId: id,
+        })
+        logger.info('Pdf strokes loaded successfully', { response })
+        return response
+      } catch (error) {
+        // Return defaults if preferences file doesn't exist yet
+        logger.warn('Failed to load pdf strokes, using defaults', { error })
+        return {}
+      }
+    },
+    gcTime: 0,
+    staleTime: 0,
+  })
+}
+
 export function useSavePdfStrokes() {
   return useMutation({
-    mutationFn: async ({ pdfId, pageId, stroke }: { pdfId: number; pageId: number;  stroke: Stroke }) => {
+    mutationFn: async ({
+      pdfId,
+      pageId,
+      stroke,
+    }: {
+      pdfId: number
+      pageId: number
+      stroke: Stroke
+    }) => {
       try {
         logger.debug('Saving strokes to backend', { pdfId, pageId, stroke })
         await invoke('save_pdf_strokes', { pdfId, pageId, stroke })
@@ -65,7 +98,12 @@ export function useSavePdfStrokes() {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown error occurred'
-        logger.error('Failed to save pdf strokes', { error, pageId, pdfId, stroke })
+        logger.error('Failed to save pdf strokes', {
+          error,
+          pageId,
+          pdfId,
+          stroke,
+        })
         toast.error('Failed to save pdf strokes', { description: message })
         throw error
       }
