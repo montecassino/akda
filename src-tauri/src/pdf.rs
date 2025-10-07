@@ -193,18 +193,48 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
 
     let folder_name = format!("pdf_{latest_id}");
     let folder_path = app_data_dir.join(folder_name);
-    let _clone_path = folder_path.to_str().unwrap().to_string(); // String
-    let clone_path = format!("{_clone_path}/{latest_id}.pdf");
+    let base_path = folder_path.to_str().unwrap().to_string(); // String
+    let clone_path = format!("{base_path}/{latest_id}.pdf");
 
     fs::create_dir_all(&folder_path).map_err(|e| e.to_string())?;
 
     fs::copy(&pdf_path, &clone_path).map_err(|e| e.to_string())?;
 
+    // extract pdf cover
+    let cover_path = format!("{base_path}/{latest_id}_cover.jpg");
+
+    let state = app_handle.state::<AppState>();
+
+    let pdfium_path = &state.lib_path;
+
+    let pdfium = Pdfium::new(
+        Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(pdfium_path))
+            .or_else(|_| Pdfium::bind_to_system_library())
+            .unwrap(), 
+    );
+
+    let document = pdfium
+        .load_pdf_from_file(&clone_path, None)
+        .map_err(|e| e.to_string())?;
+
+    let page = document.pages().get(0).map_err(|e| e.to_string())?;
+    let size = page.page_size();
+    let height = (size.height().value / 2.0) as i32;
+    let width = (size.width().value / 2.0) as i32;
+
+    let bitmap = page
+        .render(width, height, None)
+        .map_err(|e| e.to_string())?;
+
+    bitmap
+        .as_image()
+        .save(&cover_path)
+        .map_err(|e| e.to_string())?;
     let entry = PdfEntry::new(
         latest_id,
         pdf_path.clone(),
         clone_path,
-        "".to_string(),
+        cover_path,
         file_name,
     );
 

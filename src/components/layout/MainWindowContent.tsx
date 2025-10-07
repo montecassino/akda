@@ -3,7 +3,7 @@ import React, { useCallback } from 'react'
 import { Button } from '../ui/button'
 
 import { open } from '@tauri-apps/plugin-dialog'
-import { invoke } from '@tauri-apps/api/core'
+import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import type { PdfEntry } from '@/types/pdf'
 import { useFetchPdfList } from '@/services/pdf'
 import { Spinner } from '../ui/shadcn-io/spinner'
@@ -57,7 +57,7 @@ const FileItem: React.FC<PdfEntry> = ({ id, file_name, cover_path }) => {
       <div className="relative w-full aspect-[3/4] bg-gray-100 flex items-center justify-center">
         {cover_path ? (
           <img
-            src={cover_path}
+            src={`${convertFileSrc(cover_path)}`}
             alt={file_name}
             loading="lazy" // important for performance
             className="w-full h-full object-cover"
