@@ -11,7 +11,13 @@ interface Props {
   height?: number
   width?: number
   strokes: Stroke[]
-  setStrokes: React.Dispatch<React.SetStateAction<Record<number, Stroke[]>>>
+  savePdfStrokes: ({
+    newStroke,
+    pageId,
+  }: {
+    newStroke: Stroke
+    pageId: number
+  }) => void
   penColor: string
   highlighterColor: string
   penThickness: number
@@ -26,7 +32,7 @@ function Canvas({
   height = 400,
   width = 300,
   strokes,
-  setStrokes,
+  savePdfStrokes,
   penColor,
   penThickness,
   highlighterColor,
@@ -173,13 +179,7 @@ function Canvas({
     if (tool === 'pointer') return
     const stroke = strokeBuilderRef.current?.build()
     if (isDrawing && stroke && stroke.path.length > 0) {
-      setStrokes(prev => {
-        const prevPageStrokes = prev[id] ?? []
-        return {
-          ...prev,
-          [id]: [...prevPageStrokes, stroke],
-        }
-      })
+      savePdfStrokes({ newStroke: stroke, pageId: id })
     }
 
     const liveCanvas = liveCanvasRef.current

@@ -1,13 +1,17 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@/lib/logger'
 import type { LoadPdfResponse, PdfEntry } from '@/types/pdf'
+import { toast } from 'sonner'
+import type { Stroke } from '@/types/editor'
 
 // Query keys for preferences
 export const pdfQueryKeys = {
   all: ['pdf'] as const,
   pdfList: () => [...pdfQueryKeys.all, 'list'] as const,
   loadPdf: (id: number) => [...pdfQueryKeys.all, id] as const,
+  savePdfStrokes: (id: number) =>
+    [...pdfQueryKeys.all, 'save_pdf_strokes', id] as const,
 }
 
 // TanStack Query hooks following the architectural patterns
@@ -48,5 +52,23 @@ export function useLoadPdf(id: number) {
     },
     staleTime: 1000 * 60 * 0.5, // 30 seconds
     gcTime: 1000 * 60 * 1, // 1 minute
+  })
+}
+
+export function useSavePdfStrokes() {
+  return useMutation({
+    mutationFn: async ({ pdfId, pageId, stroke }: { pdfId: number; pageId: number;  stroke: Stroke }) => {
+      try {
+        logger.debug('Saving strokes to backend', { pdfId, pageId, stroke })
+        await invoke('save_pdf_strokes', { pdfId, pageId, stroke })
+        logger.info('Preferences saved successfully')
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error occurred'
+        logger.error('Failed to save pdf strokes', { error, pageId, pdfId, stroke })
+        toast.error('Failed to save pdf strokes', { description: message })
+        throw error
+      }
+    },
   })
 }

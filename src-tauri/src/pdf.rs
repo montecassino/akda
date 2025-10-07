@@ -52,6 +52,50 @@ impl PdfEntry {
     }
 }
 
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum  DrawingToolType {
+    Pen,
+    Highlighter,
+    Eraser
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct StrokePath {
+    x: f64,
+    y: f64
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Stroke {
+    tool : DrawingToolType,
+    color: String,
+    opacity: f64,
+    thickness: u64,
+    path: Vec<StrokePath>
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct PdfStrokes {
+    #[serde(flatten)]
+    #[serde(deserialize_with = "string_key_to_u32")]
+    inner: HashMap<u32, Vec<Stroke>>,
+}
+
+impl PdfStrokes {
+    pub fn new() -> Self {
+        Self {
+            inner: HashMap::new(),
+        }
+    }
+
+    fn insert(&mut self, page: u32, stroke: Stroke) {
+        self.inner.entry(page).or_insert_with(Vec::new).push(stroke);
+    }
+}
+
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Dimensions {
     height: f32,
@@ -64,11 +108,12 @@ impl Dimensions {
     }
 }
 
-fn string_key_to_u32<'de, D>(deserializer: D) -> Result<HashMap<u32, Dimensions>, D::Error>
+fn string_key_to_u32<'de, D, V>(deserializer: D) -> Result<HashMap<u32, V>, D::Error>
 where
     D: Deserializer<'de>,
+    V: Deserialize<'de>,
 {
-    let map: HashMap<String, Dimensions> = HashMap::deserialize(deserializer)?;
+    let map: HashMap<String, V> = HashMap::deserialize(deserializer)?;
     map.into_iter()
         .map(|(k, v)| {
             k.parse::<u32>()
@@ -286,4 +331,39 @@ pub fn load_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<LoadPdfResponse
     let pdf_pages_dims =
         serde_json::from_str::<PdfPagesDimensions>(&data).map_err(|e| e.to_string())?;
     Ok(LoadPdfResponse::new(pdf_entry, pdf_pages_dims))
+}
+
+#[tauri::command]
+pub fn save_pdf_strokes(app_handle: tauri::AppHandle, pdf_id: u32, page_id: u32, stroke: Stroke) -> Result<bool, String> {
+    log::info!("Saving pdf strokes: {pdf_id}");
+
+    // This will handle platform specific app data directories
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let strokes_path = app_data_dir.join(format!("pdf_{pdf_id}/strokes.json"));
+
+    if cfg!(debug_assertions) {
+        if let Some(parent) = strokes_path.parent() {
+            let _ = open_folder(parent);
+        }
+    }
+
+    let mut strokes: PdfStrokes = if strokes_path.exists() {
+        let data = fs::read_to_string(&strokes_path).map_err(|e| e.to_string())?;
+        serde_json::from_str::<PdfStrokes>(&data).map_err(|e| e.to_string())?
+    } else {
+        PdfStrokes::new()
+    };
+
+    strokes.insert(page_id, stroke);
+
+    // Save
+    fs::create_dir_all(app_data_dir).map_err(|e| e.to_string())?;
+    let serialized = serde_json::to_string_pretty(&strokes).map_err(|e| e.to_string())?;
+    fs::write(&strokes_path, serialized).map_err(|e| e.to_string())?;
+
+    Ok(true)
 }

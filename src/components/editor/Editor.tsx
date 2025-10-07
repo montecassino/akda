@@ -21,7 +21,7 @@ import 'react-pdf/dist/Page/TextLayer.css'
 import { logger } from '@/lib/logger'
 import { Spinner } from '../ui/shadcn-io/spinner'
 import MemoizedPageWrapper from './Page'
-import { useLoadPdf } from '@/services/pdf'
+import { useLoadPdf, useSavePdfStrokes } from '@/services/pdf'
 import type { PdfPagesDimensions } from '@/types/pdf'
 import { MemoizedCanvas } from './Canvas'
 import type { Stroke, ToolType } from '@/types/editor'
@@ -33,10 +33,12 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString()
 
 export function Editor() {
-  const { id } = useParams({ from: '/editor/$id' })
+  const { id: pdfId } = useParams({ from: '/editor/$id' })
   const { isLoading: isLoadingPdf, data: pdfInformation } = useLoadPdf(
-    parseInt(id)
+    parseInt(pdfId)
   )
+  const { mutate: mutateSavePdfStrokes } = useSavePdfStrokes()
+
   const router = useRouter()
 
   const [numPages, setNumPages] = useState<number>(0)
@@ -100,6 +102,25 @@ export function Editor() {
   const zoomOut = useCallback(
     () => setScale(prev => Math.max(prev - 0.25, 0.5)),
     []
+  )
+
+  const savePdfStrokes = useCallback(
+    ({ newStroke, pageId }: { newStroke: Stroke; pageId: number }) => {
+      setStrokes(prev => {
+        const prevPageStrokes = prev[pageId] ?? []
+        return {
+          ...prev,
+          [pageId]: [...prevPageStrokes, newStroke],
+        }
+      })
+
+      mutateSavePdfStrokes({
+        pdfId: parseInt(pdfId),
+        pageId: pageId,
+        stroke: newStroke,
+      })
+    },
+    [mutateSavePdfStrokes, pdfId]
   )
 
   useEffect(() => {
@@ -496,7 +517,7 @@ export function Editor() {
                             <MemoizedCanvas
                               id={pageNum}
                               tool={currentTool}
-                              setStrokes={setStrokes}
+                              savePdfStrokes={savePdfStrokes}
                               strokes={s}
                               scale={scale}
                               height={dims?.height}
