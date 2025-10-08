@@ -62,7 +62,7 @@ function PageWrapper({
       {
         root: null,
         rootMargin: '0px',
-        threshold: 0.6,
+        threshold: 0.2, // we fire the page number observer if the page is at least 20% visible
       }
     )
 
