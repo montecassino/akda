@@ -3,10 +3,22 @@ import {
   FileText,
   FileTextIcon,
   Pencil,
+  Trash2,
   UploadIcon,
 } from 'lucide-react'
 import React, { useCallback } from 'react'
-import { Button } from '../ui/button'
+import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog'
 
 import { open } from '@tauri-apps/plugin-dialog'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
@@ -16,7 +28,6 @@ import { Spinner } from '../ui/shadcn-io/spinner'
 
 import { useNavigate } from '@tanstack/react-router'
 import { Textarea } from '../ui/textarea'
-
 
 interface FileItemProps extends PdfEntry {
   doRenamePdf: ({ id, newName }: { id: number; newName: string }) => void
@@ -61,8 +72,6 @@ const FileItem: React.FC<FileItemProps> = ({
     }
 
     try {
-      // **CALL YOUR API/SERVICE HERE TO PERSIST THE RENAME**
-      console.log(`[API CALL] Renaming file ID ${id} to: ${newName}`)
       doRenamePdf({ id: parseInt(id), newName })
       // Assuming success:
       setIsRenaming(false)
@@ -83,15 +92,59 @@ const FileItem: React.FC<FileItemProps> = ({
       onMouseLeave={handleMouseLeave}
     >
       {isHovered && !isRenaming && (
-        <div
-          className="absolute left-3 top-3 bg-white p-2 rounded-full shadow-md z-10 cursor-pointer"
-          onClick={e => {
-            e.stopPropagation()
-            setIsRenaming(true)
-            setIsHovered(false)
-          }}
-        >
-          <Pencil className="w-4 h-4 text-gray-500 hover:text-blue-600 cursor-pointer" />
+        <div className="absolute left-3 top-3 flex gap-2 z-10">
+          {/* Rename */}
+          <div className="group">
+            <Button
+              size="icon"
+              className="h-8 w-8 bg-white shadow-sm hover:bg-gray-100 cursor-pointer"
+              onClick={e => {
+                e.stopPropagation()
+                setIsRenaming(true)
+                setIsHovered(false)
+              }}
+            >
+              <Pencil className="w-4 h-4 text-gray-600 group-hover:text-blue-600 transition-colors" />
+            </Button>
+          </div>
+
+          {/* Delete */}
+          <div className="group">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 bg-white shadow-sm hover:bg-gray-100 cursor-pointer"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <Trash2 className="w-4 h-4 text-gray-600 group-hover:text-red-500 transition-colors" />
+                </Button>
+              </AlertDialogTrigger>
+
+              <AlertDialogContent
+                onClick={e => e.stopPropagation()} // prevent navigation
+                className="sm:max-w-[400px]"
+              >
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete PDF</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete <strong>{file_name}</strong>
+                    ? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    // onClick={() => handleDelete()}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       )}
 
