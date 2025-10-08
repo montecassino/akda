@@ -173,7 +173,7 @@ export function Editor() {
 
   const [penThickness, setPenThickness] = useState<number>(2)
   const [highlighterThickness, setHighlighterThickness] = useState<number>(12)
-  const [eraserThickness, setEraserThickness] = useState<number>(10)
+  const [eraserThickness, setEraserThickness] = useState<number>(12)
 
   const thicknessOptions = useMemo(() => [1, 2, 4, 8, 12, 20], [])
 
