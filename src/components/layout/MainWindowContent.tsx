@@ -1,80 +1,147 @@
-import { BookOpenIcon, FileTextIcon, UploadIcon } from 'lucide-react'
+import {
+  BookOpenIcon,
+  FileText,
+  FileTextIcon,
+  Pencil,
+  UploadIcon,
+} from 'lucide-react'
 import React, { useCallback } from 'react'
 import { Button } from '../ui/button'
 
 import { open } from '@tauri-apps/plugin-dialog'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import type { PdfEntry } from '@/types/pdf'
-import { useFetchPdfList } from '@/services/pdf'
+import { useFetchPdfList, useRenamePdf } from '@/services/pdf'
 import { Spinner } from '../ui/shadcn-io/spinner'
 
 import { useNavigate } from '@tanstack/react-router'
+import { Textarea } from '../ui/textarea'
 
-// interface FileData {
-//   name: string
-//   pages: number
-//   lastOpened: string
-// }
 
-// interface FileItemProps {
-//   file: FileData
-// }
+interface FileItemProps extends PdfEntry {
+  doRenamePdf: ({ id, newName }: { id: number; newName: string }) => void
+}
 
-// const DUMMY_FILES = [
-//   {
-//     id: 1,
-//     name: 'Project Proposal Q3 2025.pdf',
-//     pages: 45,
-//     lastOpened: '2 hours ago',
-//   },
-//   { id: 2, name: 'Gemini-API-Guide.pdf', pages: 12, lastOpened: 'Yesterday' },
-//   {
-//     id: 3,
-//     name: 'Tax-Form-2024-Review.pdf',
-//     pages: 3,
-//     lastOpened: '3 days ago',
-//   },
-//   {
-//     id: 4,
-//     name: 'Research-Paper-on-Signals.pdf',
-//     pages: 88,
-//     lastOpened: '1 week ago',
-//   },
-// ]
-
-const FileItem: React.FC<PdfEntry> = ({ id, file_name, cover_path }) => {
+const FileItem: React.FC<FileItemProps> = ({
+  id,
+  file_name,
+  cover_path,
+  doRenamePdf,
+}) => {
   const navigate = useNavigate()
+  const [isRenaming, setIsRenaming] = React.useState(false)
+  const [newName, setNewName] = React.useState(file_name)
+  const [isHovered, setIsHovered] = React.useState(false)
+
+  const handleNavigate = () => {
+    if (!isRenaming) {
+      navigate({ to: `/editor/${id}`, params: { id } })
+    }
+  }
+
+  const handleMouseEnter = () => setIsHovered(true)
+
+  const handleMouseLeave = () => {
+    if (!isRenaming) {
+      setIsHovered(false)
+    }
+  }
+
+  const handleNameClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+  }
+
+  const handleRename = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!newName.trim() || newName === file_name) {
+      setIsRenaming(false)
+      setNewName(file_name)
+      return
+    }
+
+    try {
+      // **CALL YOUR API/SERVICE HERE TO PERSIST THE RENAME**
+      console.log(`[API CALL] Renaming file ID ${id} to: ${newName}`)
+      doRenamePdf({ id: parseInt(id), newName })
+      // Assuming success:
+      setIsRenaming(false)
+    } catch (error) {
+      console.error('Failed to rename file:', error)
+      // Revert name and exit edit mode on failure
+      setIsRenaming(false)
+      setNewName(file_name)
+    }
+  }
 
   return (
     <div
       key={id}
-      onClick={() => navigate({ to: '/editor/$id', params: { id } })}
-      className="flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden cursor-pointer
-               hover:bg-gray-50 transition-colors"
-      style={{ willChange: 'transform' }} // hint GPU acceleration
+      onClick={handleNavigate}
+      className="flex flex-col flex-grow bg-white rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
-      {/* PDF cover thumbnail */}
-      <div className="relative w-full aspect-[3/4] bg-gray-100 flex items-center justify-center">
+      {isHovered && !isRenaming && (
+        <div
+          className="absolute left-3 top-3 bg-white p-2 rounded-full shadow-md z-10 cursor-pointer"
+          onClick={e => {
+            e.stopPropagation()
+            setIsRenaming(true)
+            setIsHovered(false)
+          }}
+        >
+          <Pencil className="w-4 h-4 text-gray-500 hover:text-blue-600 cursor-pointer" />
+        </div>
+      )}
+
+      <div className="relative w-full aspect-[3/4] bg-gray-100 flex items-center justify-center rounded-t-xl overflow-hidden">
         {cover_path ? (
           <img
-            src={`${convertFileSrc(cover_path)}`}
+            src={convertFileSrc(cover_path)}
             alt={file_name}
-            loading="lazy" // important for performance
+            loading="lazy"
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="flex flex-col items-center justify-center text-gray-400">
-            <FileTextIcon className="w-10 h-10 mb-2" />
+          <div className="flex flex-col items-center justify-center">
+            <FileText className="w-10 h-10 mb-2 text-gray-400" />
             <span className="text-xs">No cover</span>
           </div>
         )}
       </div>
 
-      {/* Content */}
-      <div className="flex flex-col flex-1 p-3">
-        <p className="text-sm font-medium text-gray-800 truncate">
-          {file_name}
-        </p>
+      <div className="flex flex-col flex-1 p-3 relative">
+        {isRenaming ? (
+          <form onSubmit={handleRename}>
+            <Textarea
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              autoFocus
+              className="text-sm font-medium text-gray-800 w-full"
+              onBlur={() => {
+                setIsRenaming(false)
+                setNewName(file_name)
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Escape') {
+                  setIsRenaming(false)
+                  setNewName(file_name)
+                } else if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault() // prevent newline
+                  handleRename(e as unknown as React.FormEvent) // trigger rename
+                }
+              }}
+            />
+          </form>
+        ) : (
+          <p
+            className="text-sm font-medium text-gray-800 truncate"
+            onClick={handleNameClick}
+          >
+            {file_name}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -83,9 +150,11 @@ const FileItem: React.FC<PdfEntry> = ({ id, file_name, cover_path }) => {
 const PdfListArea = ({
   pdfList,
   isLoading,
+  doRenamePdf,
 }: {
   pdfList: PdfEntry[]
   isLoading: boolean
+  doRenamePdf: ({ id, newName }: { id: number; newName: string }) => void
 }) => {
   if (isLoading) {
     return <Spinner variant="ring" />
@@ -94,7 +163,7 @@ const PdfListArea = ({
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
         {pdfList.map(file => (
-          <FileItem key={file.id} {...file} />
+          <FileItem key={file.id} {...file} doRenamePdf={doRenamePdf} />
         ))}
       </div>
 
@@ -136,6 +205,15 @@ const MainWindowContent = () => {
     refetchPdfList()
   }, [refetchPdfList])
 
+  const { mutate: renamePdf } = useRenamePdf()
+
+  const doRenamePdf = useCallback(
+    ({ id, newName }: { id: number; newName: string }) => {
+      renamePdf({ id, name: newName })
+    },
+    [renamePdf]
+  )
+
   return (
     <div className="h-full flex flex-col bg-gray-50 font-sans antialiased text-gray-900">
       {/* Header stays fixed */}
@@ -160,20 +238,11 @@ const MainWindowContent = () => {
               Your Library
             </h2>
 
-            <PdfListArea pdfList={pdfList} isLoading={isLoading} />
-
-            <h3 className="text-xl font-semibold mt-12 mb-4 text-gray-800">
-              Tips
-            </h3>
-            <div className="text-sm text-gray-600 space-y-2">
-              <p>
-                • Use the search bar (if implemented) to quickly find documents.
-              </p>
-              <p>
-                • File paths are typically stored locally (in a real app) for
-                quick re-access.
-              </p>
-            </div>
+            <PdfListArea
+              pdfList={pdfList}
+              isLoading={isLoading}
+              doRenamePdf={doRenamePdf}
+            />
           </div>
         </div>
       </main>

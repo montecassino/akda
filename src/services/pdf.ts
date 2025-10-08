@@ -1,11 +1,10 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@/lib/logger'
 import type { LoadPdfResponse, PdfEntry, PdfStrokes } from '@/types/pdf'
 import { toast } from 'sonner'
 import type { Stroke } from '@/types/editor'
 
-// Query keys for preferences
 export const pdfQueryKeys = {
   all: ['pdf'] as const,
   pdfList: () => [...pdfQueryKeys.all, 'list'] as const,
@@ -16,7 +15,6 @@ export const pdfQueryKeys = {
     [...pdfQueryKeys.all, 'pdf_strokes', id] as const,
 }
 
-// TanStack Query hooks following the architectural patterns
 export function useFetchPdfList() {
   return useQuery({
     queryKey: pdfQueryKeys.pdfList(),
@@ -32,7 +30,7 @@ export function useFetchPdfList() {
         return []
       }
     },
-    staleTime: 1000 * 60 * 1, // 1 minute
+    staleTime: 0,
     gcTime: 1000 * 60 * 5, // 5 minutes
   })
 }
@@ -52,7 +50,7 @@ export function useLoadPdf(id: number) {
         return null
       }
     },
-    staleTime: 1000 * 60 * 0.5, // 30 seconds
+    staleTime: 1000 * 60 * 0.25, // 30 seconds
     gcTime: 1000 * 60 * 1, // 1 minute
   })
 }
@@ -107,6 +105,33 @@ export function useSavePdfStrokes() {
         toast.error('Failed to save pdf strokes', { description: message })
         throw error
       }
+    },
+  })
+}
+
+export function useRenamePdf() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      try {
+        logger.debug('Renaming pdf at backend', { id, name })
+        await invoke('rename_pdf', { id, name })
+        logger.info('Pdf renamed successfully')
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error occurred'
+        logger.error('Failed to rename pdf', {
+          error,
+          id,
+          name,
+        })
+        toast.error('Failed to rename pdf', { description: message })
+        throw error
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pdf'] })
     },
   })
 }

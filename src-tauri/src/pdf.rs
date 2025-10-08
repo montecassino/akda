@@ -379,11 +379,11 @@ pub fn save_pdf_strokes(
 
     let strokes_path = app_data_dir.join(format!("pdf_{pdf_id}/strokes.json"));
 
-    if cfg!(debug_assertions) {
-        if let Some(parent) = strokes_path.parent() {
-            let _ = open_folder(parent);
-        }
-    }
+    // if cfg!(debug_assertions) {
+    //     if let Some(parent) = strokes_path.parent() {
+    //         let _ = open_folder(parent);
+    //     }
+    // }
 
     let mut strokes: PdfStrokes = if strokes_path.exists() {
         let data = fs::read_to_string(&strokes_path).map_err(|e| e.to_string())?;
@@ -422,4 +422,37 @@ pub fn load_pdf_strokes(app_handle: tauri::AppHandle, pdf_id: u32) -> Result<Pdf
     };
 
     Ok(strokes)
+}
+
+#[tauri::command]
+pub fn rename_pdf(app_handle: tauri::AppHandle, id: u64, name: String) -> Result<bool, String> {
+    log::info!("Loading pdf for renaming: {id}");
+
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let state_path = app_data_dir.join("pdfs.json");
+
+    let mut pdfs: Vec<PdfEntry> = if state_path.exists() {
+        let data = fs::read_to_string(&state_path).map_err(|e| e.to_string())?;
+        serde_json::from_str::<Vec<PdfEntry>>(&data).map_err(|e| e.to_string())?
+    } else {
+        Vec::new()
+    };
+
+    match pdfs.binary_search_by(|pdf| pdf.id.cmp(&id)) {
+        Ok(index) => Ok(pdfs[index].file_name = name),
+        Err(_) => Err(format!("PDF with id {id} not found")),
+    }?;
+
+    println!("HEEHEH {:?}", pdfs);
+
+    fs::create_dir_all(app_data_dir).map_err(|e| e.to_string())?;
+    let serialized = serde_json::to_string_pretty(&pdfs).map_err(|e| e.to_string())?;
+    fs::write(&state_path, serialized).map_err(|e| e.to_string())?;
+
+
+    Ok(true)
 }
