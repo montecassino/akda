@@ -20,3 +20,14 @@ export interface LoadPdfResponse {
   pdf_entry: PdfEntry
   pdf_pages_dims: PdfPagesDimensions
 }
+
+export interface PdfEditorSyncProps {
+  id: number,
+  penColor: string
+  penThickness: number
+  highlighterColor: string
+  highlighterThickness: number
+  eraserThickness: number
+  currentPage: number
+  scale: number
+}

@@ -106,6 +106,19 @@ impl Dimensions {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfEditorSyncProps {
+     id: u64,
+     pen_color: String,
+     pen_thickness: u64,
+     highlighter_color: String,
+     highlighter_thickness: u64,
+     eraser_thickness: u64,
+     current_page: u64,
+     scale: u64,
+}
+
 fn string_key_to_u32<'de, D, V>(deserializer: D) -> Result<HashMap<u32, V>, D::Error>
 where
     D: Deserializer<'de>,
@@ -465,6 +478,27 @@ pub fn rename_pdf(app_handle: tauri::AppHandle, id: u64, name: String) -> Result
     fs::create_dir_all(app_data_dir).map_err(|e| e.to_string())?;
     let serialized = serde_json::to_string_pretty(&pdfs).map_err(|e| e.to_string())?;
     fs::write(&state_path, serialized).map_err(|e| e.to_string())?;
+
+    Ok(true)
+}
+
+#[tauri::command]
+pub fn save_editor_settings(
+    app_handle: tauri::AppHandle,
+    props: PdfEditorSyncProps,
+) -> Result<bool, String> {
+    log::info!("Syncing pdf editor settings: {:?}", props.id);
+
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let settings_path = app_data_dir.join(format!("pdf_{:?}/editor.json", props.id));
+
+    fs::create_dir_all(app_data_dir).map_err(|e| e.to_string())?;
+    let serialized = serde_json::to_string_pretty(&props).map_err(|e| e.to_string())?;
+    fs::write(&settings_path, serialized).map_err(|e| e.to_string())?;
 
     Ok(true)
 }

@@ -30,6 +30,7 @@ import type { PdfPagesDimensions } from '@/types/pdf'
 import { MemoizedCanvas } from './Canvas'
 import type { Stroke, ToolType } from '@/types/editor'
 import { cn } from '@/lib/utils'
+import { useEditorSync } from '@/hooks/use-editor-sync'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   './pdf.worker.mjs',
@@ -269,6 +270,17 @@ export function Editor() {
     document.addEventListener('pointerdown', onClick)
     return () => document.removeEventListener('pointerdown', onClick)
   }, [showPenPalette, showHighlighterPalette, showEraserThickness])
+
+  useEditorSync({
+    id: parseInt(pdfId),
+    penColor,
+    penThickness,
+    highlighterColor,
+    highlighterThickness,
+    eraserThickness,
+    currentPage,
+    scale,
+  })
 
   const pickPenColor = useCallback((c: string) => {
     setPenColor(c)

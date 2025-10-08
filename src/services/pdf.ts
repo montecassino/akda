@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@/lib/logger'
-import type { LoadPdfResponse, PdfEntry, PdfStrokes } from '@/types/pdf'
+import type {
+  LoadPdfResponse,
+  PdfEditorSyncProps,
+  PdfEntry,
+  PdfStrokes,
+} from '@/types/pdf'
 import { toast } from 'sonner'
 import type { Stroke } from '@/types/editor'
 
@@ -159,6 +164,28 @@ export function useRemovePdf() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pdf'] })
+    },
+  })
+}
+
+// 1 editor setting per pdf
+export function useSaveEditorSettings() {
+  return useMutation({
+    mutationFn: async (props: PdfEditorSyncProps) => {
+      try {
+        logger.debug('Sync pdf editor settings at backend', { props })
+        await invoke('save_editor_settings', { props })
+        logger.info('Synced pdf editor settings')
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error occurred'
+        logger.error('Failed to save editor settings', {
+          error,
+          id: props.id,
+        })
+        toast.error('Failed to save editor settings', { description: message })
+        throw error
+      }
     },
   })
 }
