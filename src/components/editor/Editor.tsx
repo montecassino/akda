@@ -146,8 +146,24 @@ export function Editor() {
       }
     }
 
+    const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey) {
+        event.preventDefault()
+        if (event.deltaY < 0) {
+          zoomIn()
+        } else if (event.deltaY > 0) {
+          zoomOut()
+        }
+      }
+    }
+
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('wheel', handleWheel, { passive: false })
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('wheel', handleWheel)
+    }
   }, [zoomIn, zoomOut])
 
   // Tool State
