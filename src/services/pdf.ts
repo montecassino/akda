@@ -135,3 +135,30 @@ export function useRenamePdf() {
     },
   })
 }
+
+export function useRemovePdf() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id }: { id: number }) => {
+      try {
+        logger.debug('Removing pdf at backend', { id })
+        await invoke('remove_pdf', { id })
+        logger.info('Pdf removed successfully')
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error occurred'
+        logger.error('Failed to remove pdf', {
+          error,
+          id,
+          name,
+        })
+        toast.error('Failed to remove pdf', { description: message })
+        throw error
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pdf'] })
+    },
+  })
+}

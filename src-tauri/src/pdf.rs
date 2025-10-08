@@ -210,7 +210,7 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
     let pdfium = Pdfium::new(
         Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(pdfium_path))
             .or_else(|_| Pdfium::bind_to_system_library())
-            .unwrap(), 
+            .unwrap(),
     );
 
     let document = pdfium
@@ -290,6 +290,21 @@ pub fn remove_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<bool, String>
 
     if let Ok(idx) = pdfs.binary_search_by(|pdf| pdf.id.cmp(&id)) {
         pdfs.remove(idx);
+
+        // recursive removal of subfolders and files
+        let folder_name = format!("pdf_{id}");
+        let folder_path = app_data_dir.join(folder_name);
+        if folder_path.exists() {
+            fs::remove_dir_all(folder_path).map_err(|e| e.to_string())?;
+            log::info!("Successfully removed folder{:?}", id);
+        } else {
+            log::info!("Folder does not exist: {:?}", id);
+        }
+
+        // remove from json config
+        fs::create_dir_all(app_data_dir).map_err(|e| e.to_string())?;
+        let serialized = serde_json::to_string_pretty(&pdfs).map_err(|e| e.to_string())?;
+        fs::write(&state_path, serialized).map_err(|e| e.to_string())?;
         Ok(true)
     } else {
         Ok(false)
@@ -447,12 +462,9 @@ pub fn rename_pdf(app_handle: tauri::AppHandle, id: u64, name: String) -> Result
         Err(_) => Err(format!("PDF with id {id} not found")),
     }?;
 
-    println!("HEEHEH {:?}", pdfs);
-
     fs::create_dir_all(app_data_dir).map_err(|e| e.to_string())?;
     let serialized = serde_json::to_string_pretty(&pdfs).map_err(|e| e.to_string())?;
     fs::write(&state_path, serialized).map_err(|e| e.to_string())?;
-
 
     Ok(true)
 }

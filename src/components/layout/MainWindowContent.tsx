@@ -23,7 +23,7 @@ import {
 import { open } from '@tauri-apps/plugin-dialog'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import type { PdfEntry } from '@/types/pdf'
-import { useFetchPdfList, useRenamePdf } from '@/services/pdf'
+import { useFetchPdfList, useRemovePdf, useRenamePdf } from '@/services/pdf'
 import { Spinner } from '../ui/shadcn-io/spinner'
 
 import { useNavigate } from '@tanstack/react-router'
@@ -31,6 +31,7 @@ import { Textarea } from '../ui/textarea'
 
 interface FileItemProps extends PdfEntry {
   doRenamePdf: ({ id, newName }: { id: number; newName: string }) => void
+  doRemovePdf: ({ id }: { id: number }) => void
 }
 
 const FileItem: React.FC<FileItemProps> = ({
@@ -38,6 +39,7 @@ const FileItem: React.FC<FileItemProps> = ({
   file_name,
   cover_path,
   doRenamePdf,
+  doRemovePdf,
 }) => {
   const navigate = useNavigate()
   const [isRenaming, setIsRenaming] = React.useState(false)
@@ -75,12 +77,15 @@ const FileItem: React.FC<FileItemProps> = ({
       doRenamePdf({ id: parseInt(id), newName })
       // Assuming success:
       setIsRenaming(false)
-    } catch (error) {
-      console.error('Failed to rename file:', error)
+    } catch {
       // Revert name and exit edit mode on failure
       setIsRenaming(false)
       setNewName(file_name)
     }
+  }
+
+  const handleDelete = async () => {
+    doRemovePdf({ id: parseInt(id) })
   }
 
   return (
@@ -137,7 +142,7 @@ const FileItem: React.FC<FileItemProps> = ({
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
                     className="bg-red-600 hover:bg-red-700 text-white"
-                    // onClick={() => handleDelete()}
+                    onClick={() => handleDelete()}
                   >
                     Delete
                   </AlertDialogAction>
@@ -204,10 +209,12 @@ const PdfListArea = ({
   pdfList,
   isLoading,
   doRenamePdf,
+  doRemovePdf,
 }: {
   pdfList: PdfEntry[]
   isLoading: boolean
   doRenamePdf: ({ id, newName }: { id: number; newName: string }) => void
+  doRemovePdf: ({ id }: { id: number }) => void
 }) => {
   if (isLoading) {
     return <Spinner variant="ring" />
@@ -216,7 +223,12 @@ const PdfListArea = ({
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
         {pdfList.map(file => (
-          <FileItem key={file.id} {...file} doRenamePdf={doRenamePdf} />
+          <FileItem
+            key={file.id}
+            {...file}
+            doRenamePdf={doRenamePdf}
+            doRemovePdf={doRemovePdf}
+          />
         ))}
       </div>
 
@@ -259,12 +271,20 @@ const MainWindowContent = () => {
   }, [refetchPdfList])
 
   const { mutate: renamePdf } = useRenamePdf()
+  const { mutate: removePdf } = useRemovePdf()
 
   const doRenamePdf = useCallback(
     ({ id, newName }: { id: number; newName: string }) => {
       renamePdf({ id, name: newName })
     },
     [renamePdf]
+  )
+
+  const doRemovePdf = useCallback(
+    ({ id }: { id: number }) => {
+      removePdf({ id })
+    },
+    [removePdf]
   )
 
   return (
@@ -295,6 +315,7 @@ const MainWindowContent = () => {
               pdfList={pdfList}
               isLoading={isLoading}
               doRenamePdf={doRenamePdf}
+              doRemovePdf={doRemovePdf}
             />
           </div>
         </div>
