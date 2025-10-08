@@ -50,6 +50,7 @@ export function Editor() {
   const [numPages, setNumPages] = useState<number>(0)
   const [scale, setScale] = useState<number>(1.0)
   const [pdfData, setPdfData] = useState<ArrayBuffer | undefined>(undefined)
+  const [jumpPage, setJumpPage] = useState<string>('')
 
   const [currentTool, setCurrentTool] = useState<ToolType>('pointer')
 
@@ -113,6 +114,14 @@ export function Editor() {
     () => setScale(prev => Math.max(prev - 0.25, 0.5)),
     []
   )
+
+  const handleJumpToPage = useCallback(() => {
+    const pageNum = parseInt(jumpPage)
+    if (!pageNum || pageNum < 1 || pageNum > numPages) return
+
+    rowVirtualizer.scrollToIndex(pageNum - 1, { align: 'start' })
+    setJumpPage('')
+  }, [jumpPage, numPages, rowVirtualizer])
 
   const savePdfStrokes = useCallback(
     ({ newStroke, pageId }: { newStroke: Stroke; pageId: number }) => {
@@ -313,11 +322,6 @@ export function Editor() {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex flex-col items-center gap-6 bg-muted/30 p-4 border-r w-20">
-          <div className="text-xs font-semibold mt-2">
-            {currentPage}
-            <span className="text-muted-foreground">/{numPages}</span>
-          </div>
-
           <div className="flex flex-col items-center gap-2">
             <Button
               variant="outline"
@@ -574,6 +578,42 @@ export function Editor() {
             {!pdfInformation && !pdfData && !isLoadingPdf && (
               <p className="text-destructive">Could not load document data</p>
             )}
+          </div>
+        </div>
+      </div>
+
+      <div className="sticky bottom-0 z-50 flex flex-col items-center justify-center w-full border-t bg-background/80 backdrop-blur-md py-3">
+        <div className="flex items-center justify-center gap-4">
+          <span className="text-sm font-semibold tracking-tight">
+            {currentPage}
+            <span className="text-muted-foreground font-normal">
+              {' '}
+              / {numPages}
+            </span>
+          </span>
+
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border bg-muted/40 shadow-sm hover:bg-muted/60 transition">
+            <input
+              type="number"
+              min={1}
+              max={numPages}
+              value={jumpPage}
+              onChange={e => setJumpPage(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleJumpToPage()
+              }}
+              className="w-12 text-center text-sm bg-transparent focus:outline-none focus:ring-0 appearance-none"
+              placeholder="Pg"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-7 px-3 text-xs rounded-full shadow-sm"
+              onClick={handleJumpToPage}
+              disabled={!jumpPage}
+            >
+              Jump
+            </Button>
           </div>
         </div>
       </div>
