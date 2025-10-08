@@ -22,6 +22,7 @@ import { logger } from '@/lib/logger'
 import { Spinner } from '../ui/shadcn-io/spinner'
 import MemoizedPageWrapper from './Page'
 import {
+  useLoadEditorSettings,
   useLoadPdf,
   useLoadPdfStrokes,
   useSavePdfStrokes,
@@ -43,7 +44,7 @@ export function Editor() {
     parseInt(pdfId)
   )
   const { data: _strokes = {} } = useLoadPdfStrokes(parseInt(pdfId))
-
+  const { data: editorSettings } = useLoadEditorSettings(parseInt(pdfId))
   const { mutate: mutateSavePdfStrokes } = useSavePdfStrokes()
 
   const router = useRouter()
@@ -108,7 +109,7 @@ export function Editor() {
 
   // Memoized zoom handlers
   const zoomIn = useCallback(
-    () => setScale(prev => Math.min(prev + 0.25, 3)),
+    () => setScale(prev => Math.min(prev + 0.25, 2)),
     []
   )
   const zoomOut = useCallback(
@@ -116,13 +117,38 @@ export function Editor() {
     []
   )
 
-  const handleJumpToPage = useCallback(() => {
-    const pageNum = parseInt(jumpPage)
-    if (!pageNum || pageNum < 1 || pageNum > numPages) return
+  const handleJumpToPage = useCallback(
+    (jumpPage: string) => {
+      const pageNum = parseInt(jumpPage)
+      if (!pageNum || pageNum < 1 || pageNum > numPages) return
 
-    rowVirtualizer.scrollToIndex(pageNum - 1, { align: 'start' })
-    setJumpPage('')
-  }, [jumpPage, numPages, rowVirtualizer])
+      rowVirtualizer.scrollToIndex(pageNum - 1, { align: 'start' })
+      setJumpPage('')
+    },
+    [numPages, rowVirtualizer]
+  )
+
+  useEffect(() => {
+    if (!editorSettings) return
+
+    const {
+      currentPage,
+      eraserThickness,
+      highlighterThickness,
+      highlighterColor,
+      penColor,
+      scale,
+    } = editorSettings
+
+    // batch
+    setCurrentPage(currentPage)
+    handleJumpToPage(currentPage.toString())
+    setEraserThickness(eraserThickness)
+    setHighlighterThickness(highlighterThickness)
+    setHighlighterColor(highlighterColor)
+    setPenColor(penColor)
+    setScale(scale)
+  }, [editorSettings, handleJumpToPage])
 
   const savePdfStrokes = useCallback(
     ({ newStroke, pageId }: { newStroke: Stroke; pageId: number }) => {
@@ -612,7 +638,7 @@ export function Editor() {
               value={jumpPage}
               onChange={e => setJumpPage(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter') handleJumpToPage()
+                if (e.key === 'Enter') handleJumpToPage(jumpPage)
               }}
               className="w-12 text-center text-sm bg-transparent focus:outline-none focus:ring-0 appearance-none"
               placeholder="Pg"
@@ -621,7 +647,7 @@ export function Editor() {
               variant="secondary"
               size="sm"
               className="h-7 px-3 text-xs rounded-full shadow-sm"
-              onClick={handleJumpToPage}
+              onClick={() => handleJumpToPage(jumpPage)}
               disabled={!jumpPage}
             >
               Jump

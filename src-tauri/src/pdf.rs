@@ -109,14 +109,29 @@ impl Dimensions {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PdfEditorSyncProps {
-     id: u64,
-     pen_color: String,
-     pen_thickness: u64,
-     highlighter_color: String,
-     highlighter_thickness: u64,
-     eraser_thickness: u64,
-     current_page: u64,
-     scale: u64,
+    id: u64,
+    pen_color: String,
+    pen_thickness: u64,
+    highlighter_color: String,
+    highlighter_thickness: u64,
+    eraser_thickness: u64,
+    current_page: u64,
+    scale: f64,
+}
+
+impl Default for PdfEditorSyncProps {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            pen_color: "#ff0000".into(),
+            pen_thickness: 2,
+            highlighter_color: "#ffff00".into(),
+            highlighter_thickness: 12,
+            eraser_thickness: 12,
+            current_page: 1,
+            scale: 1.0,
+        }
+    }
 }
 
 fn string_key_to_u32<'de, D, V>(deserializer: D) -> Result<HashMap<u32, V>, D::Error>
@@ -501,4 +516,28 @@ pub fn save_editor_settings(
     fs::write(&settings_path, serialized).map_err(|e| e.to_string())?;
 
     Ok(true)
+}
+
+#[tauri::command]
+pub fn load_editor_settings(
+    app_handle: tauri::AppHandle,
+    id: u64,
+) -> Result<PdfEditorSyncProps, String> {
+    log::info!("Loading pdf editor settings: {id}");
+
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let settings_path = app_data_dir.join(format!("pdf_{:?}/editor.json", id));
+
+    let settings: PdfEditorSyncProps = if settings_path.exists() {
+        let data = fs::read_to_string(&settings_path).map_err(|e| e.to_string())?;
+        serde_json::from_str::<PdfEditorSyncProps>(&data).map_err(|e| e.to_string())?
+    } else {
+        PdfEditorSyncProps::default()
+    };
+
+    Ok(settings)
 }

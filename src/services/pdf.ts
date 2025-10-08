@@ -14,10 +14,13 @@ export const pdfQueryKeys = {
   all: ['pdf'] as const,
   pdfList: () => [...pdfQueryKeys.all, 'list'] as const,
   loadPdf: (id: number) => [...pdfQueryKeys.all, id] as const,
-  savePdfStrokes: (id: number) =>
-    [...pdfQueryKeys.all, 'save_pdf_strokes', id] as const,
   loadPdfStrokes: (id: number) =>
     [...pdfQueryKeys.all, 'pdf_strokes', id] as const,
+  loadEditorSettings: (id: number) => [
+    ...pdfQueryKeys.all,
+    'editor_settings',
+    id,
+  ],
 }
 
 export function useFetchPdfList() {
@@ -187,5 +190,33 @@ export function useSaveEditorSettings() {
         throw error
       }
     },
+  })
+}
+
+export function useLoadEditorSettings(id: number) {
+  return useQuery({
+    queryKey: pdfQueryKeys.loadEditorSettings(id),
+    queryFn: async (): Promise<PdfEditorSyncProps | null> => {
+      try {
+        logger.debug('Loading pdf editor settings')
+
+        const response = await invoke<PdfEditorSyncProps>(
+          'load_editor_settings',
+          {
+            id,
+          }
+        )
+        logger.info('Pdf editor settings loaded successfully', { response })
+        return response
+      } catch (error) {
+        // Return defaults if preferences file doesn't exist yet
+        logger.warn('Failed to load pdf editor settings, using defaults', {
+          error,
+        })
+        return null
+      }
+    },
+    staleTime: 0,
+    gcTime: 0,
   })
 }
