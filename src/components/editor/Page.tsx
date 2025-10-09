@@ -10,6 +10,8 @@ interface Props {
   pageHeight?: number // Add this prop
 }
 
+const DPR = 1.75
+
 function PageWrapper({
   pageNumber,
   scale,
@@ -101,6 +103,7 @@ function PageWrapper({
           scale={scale}
           renderTextLayer={false}
           renderAnnotationLayer={false}
+          devicePixelRatio={DPR}
           loading={
             <div
               style={{ height: placeholderHeight, width: placeholderWidth }}
