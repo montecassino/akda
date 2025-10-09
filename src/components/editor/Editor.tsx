@@ -33,6 +33,7 @@ import { MemoizedCanvas } from './Canvas'
 import type { Stroke, ToolType } from '@/types/editor'
 import { cn } from '@/lib/utils'
 import { useEditorSync } from '@/hooks/use-editor-sync'
+import { useBookmarks } from '@/hooks/use-bookmarks'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   './pdf.worker.mjs',
@@ -61,6 +62,8 @@ export function Editor() {
   const [pageDimensions, setPageDimensions] = useState<PdfPagesDimensions>({})
 
   const [strokes, setStrokes] = useState<Record<number, Stroke[]>>({})
+
+  const { toggleBookmark, isPageBookmarked } = useBookmarks()
 
   const parentRef = useRef<HTMLDivElement>(null)
 
@@ -631,12 +634,16 @@ export function Editor() {
                 'rounded-full transition-colors',
                 'text-yellow-500'
               )}
-              // onClick={() => toggleBookmark(currentPage)}
-              // title={bookmarkedPages.has(currentPage) ? 'Remove Bookmark' : 'Add Bookmark'}
+              onClick={() => toggleBookmark(currentPage)}
             >
               <Star
                 size={20}
-                className={cn('text-muted-foreground top-0.5 relative')}
+                className={cn(
+                  'top-0.5 relative',
+                  isPageBookmarked(currentPage)
+                    ? 'fill-yellow-500 text-yellow-500'
+                    : 'text-muted-foreground'
+                )}
               />
             </Button>
             {currentPage}
