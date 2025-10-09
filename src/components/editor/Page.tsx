@@ -6,8 +6,8 @@ interface Props {
   pageNumber: number
   scale: number
   onPageChange?: (pageNumber: number) => void
-  pageWidth?: number // Add this prop
-  pageHeight?: number // Add this prop
+  pageWidth?: number
+  pageHeight?: number
 }
 
 const DPR = 1.75

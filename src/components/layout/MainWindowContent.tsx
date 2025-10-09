@@ -53,20 +53,12 @@ const FileItem: React.FC<FileItemProps> = ({
   }
 
   const handleMouseEnter = () => setIsHovered(true)
-
   const handleMouseLeave = () => {
-    if (!isRenaming) {
-      setIsHovered(false)
-    }
-  }
-
-  const handleNameClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
+    if (!isRenaming) setIsHovered(false)
   }
 
   const handleRename = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!newName.trim() || newName === file_name) {
       setIsRenaming(false)
       setNewName(file_name)
@@ -75,10 +67,8 @@ const FileItem: React.FC<FileItemProps> = ({
 
     try {
       doRenamePdf({ id: parseInt(id), newName })
-      // Assuming success:
       setIsRenaming(false)
     } catch {
-      // Revert name and exit edit mode on failure
       setIsRenaming(false)
       setNewName(file_name)
     }
@@ -92,43 +82,45 @@ const FileItem: React.FC<FileItemProps> = ({
     <div
       key={id}
       onClick={handleNavigate}
-      className="flex flex-col flex-grow bg-white rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors relative"
+      className="flex flex-col flex-grow bg-card rounded-xl border border-border hover:bg-muted/40 transition-colors relative"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {isHovered && !isRenaming && (
         <div className="absolute left-3 top-3 flex gap-2 z-10">
-          {/* Rename */}
+          {/* Rename (keeps group so group-hover works) */}
           <div className="group">
             <Button
               size="icon"
-              className="h-8 w-8 bg-white shadow-sm hover:bg-gray-100 cursor-pointer"
+              className="h-8 w-8 bg-background shadow-sm hover:bg-accent transition-colors cursor-pointer"
               onClick={e => {
                 e.stopPropagation()
                 setIsRenaming(true)
                 setIsHovered(false)
               }}
             >
+              {/* explicit blue on hover */}
               <Pencil className="w-4 h-4 text-gray-600 group-hover:text-blue-600 transition-colors" />
             </Button>
           </div>
 
-          {/* Delete */}
+          {/* Delete (group + explicit red hover) */}
           <div className="group">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 bg-white shadow-sm hover:bg-gray-100 cursor-pointer"
+                  className="h-8 w-8 bg-background shadow-sm transition-colors cursor-pointer"
                   onClick={e => e.stopPropagation()}
                 >
+                  {/* explicit red on hover */}
                   <Trash2 className="w-4 h-4 text-gray-600 group-hover:text-red-500 transition-colors" />
                 </Button>
               </AlertDialogTrigger>
 
               <AlertDialogContent
-                onClick={e => e.stopPropagation()} // prevent navigation
+                onClick={e => e.stopPropagation()}
                 className="sm:max-w-[400px]"
               >
                 <AlertDialogHeader>
@@ -153,7 +145,7 @@ const FileItem: React.FC<FileItemProps> = ({
         </div>
       )}
 
-      <div className="relative w-full aspect-[3/4] bg-gray-100 flex items-center justify-center rounded-t-xl overflow-hidden">
+      <div className="relative w-full aspect-[3/4] bg-muted flex items-center justify-center rounded-t-xl overflow-hidden">
         {cover_path ? (
           <img
             src={convertFileSrc(cover_path)}
@@ -162,8 +154,8 @@ const FileItem: React.FC<FileItemProps> = ({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="flex flex-col items-center justify-center">
-            <FileText className="w-10 h-10 mb-2 text-gray-400" />
+          <div className="flex flex-col items-center justify-center text-muted-foreground">
+            <FileText className="w-10 h-10 mb-2" />
             <span className="text-xs">No cover</span>
           </div>
         )}
@@ -176,7 +168,7 @@ const FileItem: React.FC<FileItemProps> = ({
               value={newName}
               onChange={e => setNewName(e.target.value)}
               autoFocus
-              className="text-sm font-medium text-gray-800 w-full"
+              className="text-sm font-medium w-full text-foreground"
               onBlur={() => {
                 setIsRenaming(false)
                 setNewName(file_name)
@@ -186,16 +178,16 @@ const FileItem: React.FC<FileItemProps> = ({
                   setIsRenaming(false)
                   setNewName(file_name)
                 } else if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault() // prevent newline
-                  handleRename(e as unknown as React.FormEvent) // trigger rename
+                  e.preventDefault()
+                  handleRename(e as unknown as React.FormEvent)
                 }
               }}
             />
           </form>
         ) : (
           <p
-            className="text-sm font-medium text-gray-800 truncate"
-            onClick={handleNameClick}
+            className="text-sm font-medium truncate text-foreground"
+            onClick={e => e.stopPropagation()}
           >
             {file_name}
           </p>
@@ -216,9 +208,8 @@ const PdfListArea = ({
   doRenamePdf: ({ id, newName }: { id: number; newName: string }) => void
   doRemovePdf: ({ id }: { id: number }) => void
 }) => {
-  if (isLoading) {
-    return <Spinner variant="ring" />
-  }
+  if (isLoading) return <Spinner variant="ring" />
+
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
@@ -233,13 +224,13 @@ const PdfListArea = ({
       </div>
 
       {pdfList.length === 0 && (
-        <div className="text-center p-10 border-2 border-dashed border-gray-300 rounded-xl mt-8">
-          <FileTextIcon className="w-12 h-12 text-gray-400 mx-auto" />
-          <p className="mt-4 text-lg font-medium text-gray-600">
+        <div className="text-center p-10 border-2 border-dashed border-border rounded-xl mt-8 bg-muted/30">
+          <FileTextIcon className="w-12 h-12 text-muted-foreground mx-auto" />
+          <p className="mt-4 text-lg font-medium text-foreground">
             No recent files found.
           </p>
-          <p className="text-sm text-gray-500">
-            Click &quot;Load a PDF Document&quot; to get started.
+          <p className="text-sm text-muted-foreground">
+            Click &quot;Open New PDF&quot; to get started.
           </p>
         </div>
       )}
@@ -258,12 +249,7 @@ const MainWindowContent = () => {
     const filePath = await open({
       multiple: false,
       directory: false,
-      filters: [
-        {
-          name: 'PDF',
-          extensions: ['pdf'],
-        },
-      ],
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
     })
 
     await invoke<string>('register_pdf', { pdfPath: filePath })
@@ -274,40 +260,37 @@ const MainWindowContent = () => {
   const { mutate: removePdf } = useRemovePdf()
 
   const doRenamePdf = useCallback(
-    ({ id, newName }: { id: number; newName: string }) => {
-      renamePdf({ id, name: newName })
-    },
+    ({ id, newName }: { id: number; newName: string }) =>
+      renamePdf({ id, name: newName }),
     [renamePdf]
   )
 
   const doRemovePdf = useCallback(
-    ({ id }: { id: number }) => {
-      removePdf({ id })
-    },
+    ({ id }: { id: number }) => removePdf({ id }),
     [removePdf]
   )
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 font-sans antialiased text-gray-900">
-      {/* Header stays fixed */}
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
+    <div className="h-full flex flex-col bg-background text-foreground font-sans antialiased">
+      {/* Header */}
+      <header className="sticky top-0 z-10 bg-card border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center">
-            <BookOpenIcon className="w-6 h-6 text-blue-600 mr-2" />
+            <BookOpenIcon className="w-6 h-6 text-primary mr-2" />
             <h1 className="text-xl font-bold tracking-tight">PDF Viewer App</h1>
           </div>
           <Button className="hidden sm:flex" onClick={openPdfFile}>
-            <UploadIcon className="w-4 h-4" />
+            <UploadIcon className="w-4 h-4 mr-2" />
             Open New PDF
           </Button>
         </div>
       </header>
 
-      {/* Main area scrolls */}
+      {/* Main */}
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
           <div className="w-full">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">
+            <h2 className="text-2xl font-bold mb-6 border-b border-border pb-2">
               Your Library
             </h2>
 
