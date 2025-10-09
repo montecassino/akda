@@ -11,6 +11,7 @@ import {
   ZoomOut,
   MousePointer,
   ArrowLeft,
+  Star,
 } from 'lucide-react'
 import { useParams, useRouter } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -623,6 +624,21 @@ export function Editor() {
       <div className="sticky bottom-0 z-50 flex flex-col items-center justify-center w-full border-t bg-background/80 backdrop-blur-md py-3">
         <div className="flex items-center justify-center gap-4">
           <span className="text-sm font-semibold tracking-tight">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'rounded-full transition-colors',
+                'text-yellow-500'
+              )}
+              // onClick={() => toggleBookmark(currentPage)}
+              // title={bookmarkedPages.has(currentPage) ? 'Remove Bookmark' : 'Add Bookmark'}
+            >
+              <Star
+                size={20}
+                className={cn('text-muted-foreground top-0.5 relative')}
+              />
+            </Button>
             {currentPage}
             <span className="text-muted-foreground font-normal">
               {' '}
