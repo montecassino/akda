@@ -88,7 +88,7 @@ const FileItem: React.FC<FileItemProps> = ({
     >
       {isHovered && !isRenaming && (
         <div className="absolute left-3 top-3 flex gap-2 z-10">
-          {/* Rename (keeps group so group-hover works) */}
+          {/* Rename */}
           <div className="group">
             <Button
               size="icon"
@@ -99,23 +99,21 @@ const FileItem: React.FC<FileItemProps> = ({
                 setIsHovered(false)
               }}
             >
-              {/* explicit blue on hover */}
-              <Pencil className="w-4 h-4 text-gray-600 group-hover:text-blue-600 transition-colors" />
+              <Pencil className="w-4 h-4 text-muted-foreground group-hover:text-blue-600 transition-colors" />
             </Button>
           </div>
 
-          {/* Delete (group + explicit red hover) */}
+          {/* Delete */}
           <div className="group">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 bg-background shadow-sm transition-colors cursor-pointer"
+                  className="h-8 w-8 bg-background shadow-sm  transition-colors cursor-pointer"
                   onClick={e => e.stopPropagation()}
                 >
-                  {/* explicit red on hover */}
-                  <Trash2 className="w-4 h-4 text-gray-600 group-hover:text-red-500 transition-colors" />
+                  <Trash2 className="w-4 h-4 text-muted-foreground group-hover:text-destructive" />
                 </Button>
               </AlertDialogTrigger>
 
@@ -133,7 +131,7 @@ const FileItem: React.FC<FileItemProps> = ({
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    className="bg-red-600 hover:bg-red-700 text-white"
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                     onClick={() => handleDelete()}
                   >
                     Delete

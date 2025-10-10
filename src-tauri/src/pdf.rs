@@ -1,4 +1,5 @@
 use crate::state::AppState;
+use chrono::Local;
 use pdfium_render::prelude::Pdfium;
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
@@ -229,8 +230,9 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
     fs::copy(&pdf_path, &clone_path).map_err(|e| e.to_string())?;
 
     // extract pdf cover
-    let cover_path = format!("{base_path}/{latest_id}_cover.jpg");
-
+    let now = Local::now();
+    let timestamp = now.format("%Y%m%d_%H%M%S").to_string();
+    let cover_path = format!("{base_path}/{latest_id}_cover_{timestamp}.jpg");
     let state = app_handle.state::<AppState>();
 
     let pdfium_path = &state.lib_path;
@@ -277,7 +279,7 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
 }
 
 #[tauri::command]
-pub fn list_pdf(app_handle: tauri::AppHandle) -> Result<Vec<PdfEntry>, String> {
+pub async fn list_pdf(app_handle: tauri::AppHandle) -> Result<Vec<PdfEntry>, String> {
     log::info!("Listing pdf list");
 
     // This will handle platform specific app data directories
@@ -340,7 +342,7 @@ pub fn remove_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<bool, String>
 }
 
 #[tauri::command]
-pub fn load_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<LoadPdfResponse, String> {
+pub async fn load_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<LoadPdfResponse, String> {
     log::info!("Loading pdf: {id}");
 
     let app_data_dir = app_handle
@@ -406,7 +408,7 @@ pub fn load_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<LoadPdfResponse
 }
 
 #[tauri::command]
-pub fn save_pdf_strokes(
+pub async fn save_pdf_strokes(
     app_handle: tauri::AppHandle,
     pdf_id: u32,
     page_id: u32,
@@ -498,7 +500,7 @@ pub fn rename_pdf(app_handle: tauri::AppHandle, id: u64, name: String) -> Result
 }
 
 #[tauri::command]
-pub fn save_editor_settings(
+pub async fn save_editor_settings(
     app_handle: tauri::AppHandle,
     props: PdfEditorSyncProps,
 ) -> Result<bool, String> {
