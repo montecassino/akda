@@ -3,6 +3,7 @@ use chrono::Local;
 use pdfium_render::prelude::Pdfium;
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::{collections::HashMap, fs, path::Path, process::Command};
 use tauri::Manager;
 
@@ -169,6 +170,26 @@ impl PdfPagesDimensions {
     }
 }
 
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct PdfPagesThumbnails {
+    #[serde(flatten)]
+    #[serde(deserialize_with = "string_key_to_u32")]
+    inner: HashMap<u32, String>,
+}
+
+impl PdfPagesThumbnails {
+    pub fn new() -> Self {
+        Self {
+            inner: HashMap::new(),
+        }
+    }
+
+    fn insert(&mut self, page: u32, path: String) {
+        self.inner.insert(page, path);
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct LoadPdfResponse {
     pdf_entry: PdfEntry,
@@ -183,6 +204,58 @@ impl LoadPdfResponse {
         }
     }
 }
+
+fn extract_page_thumbnails(
+    pdfium_path: &PathBuf,
+    pdf_path: &str,
+    folder_path: &PathBuf,
+) -> Result<(), String> {
+    let pdfium = Pdfium::new(
+        Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(pdfium_path))
+            .or_else(|_| Pdfium::bind_to_system_library())
+            .map_err(|e| e.to_string())?,
+    );
+
+    let document = pdfium
+        .load_pdf_from_file(pdf_path, None)
+        .map_err(|e| e.to_string())?;
+
+    let thumbs_dir = folder_path.join("thumbnails");
+    fs::create_dir_all(&thumbs_dir).map_err(|e| e.to_string())?;
+
+    let mut page_thumbs = PdfPagesThumbnails::new();
+
+    for (i, page) in document.pages().iter().enumerate() {
+        let page_no = i as u32 + 1;
+        let size = page.page_size();
+        let height = size.height().value;
+        let width = size.width().value;
+
+        let thumb_width = (width / 3.0) as i32;
+        let thumb_height = (height / 3.0) as i32;
+
+        let bitmap = page
+            .render(thumb_width, thumb_height, None)
+            .map_err(|e| e.to_string())?;
+
+        let thumb_path = thumbs_dir.join(format!("page_{page_no}.jpg"));
+        bitmap
+            .as_image()
+            .save(&thumb_path)
+            .map_err(|e| e.to_string())?;
+
+        // ux wise lets stream this to front end as it inserts
+        page_thumbs.insert(page_no, thumb_path.to_str().unwrap().to_string());
+    }
+
+    let thumbs_path = folder_path.join("page_thumbnails.json");
+    let thumbs_serialized =
+        serde_json::to_string_pretty(&page_thumbs).map_err(|e| e.to_string())?;
+    fs::write(&thumbs_path, thumbs_serialized).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 
 #[tauri::command]
 pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<String, String> {
@@ -263,7 +336,7 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
     let entry = PdfEntry::new(
         latest_id,
         pdf_path.clone(),
-        clone_path,
+        clone_path.clone(),
         cover_path,
         file_name,
     );
@@ -275,7 +348,16 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
     let serialized = serde_json::to_string_pretty(&pdfs).map_err(|e| e.to_string())?;
     fs::write(&state_path, serialized).map_err(|e| e.to_string())?;
 
-    Ok(format!("Registered PDF {pdf_path}"))
+    // cpu heavy
+    let pdfium_lib_path = pdfium_path.clone();
+    let thread_clone_path = clone_path.clone();
+    let thread_folder_path = folder_path.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        extract_page_thumbnails(&pdfium_lib_path, &thread_clone_path, &thread_folder_path)
+    });
+
+    Ok(format!("Registered PDF"))
 }
 
 #[tauri::command]
