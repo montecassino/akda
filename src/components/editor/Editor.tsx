@@ -34,6 +34,7 @@ import type { Stroke, ToolType } from '@/types/editor'
 import { cn } from '@/lib/utils'
 import { useEditorSync } from '@/hooks/use-editor-sync'
 import { useBookmarks } from '@/hooks/use-bookmarks'
+import ThumbnailViewer from './ThumbnailViewer'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   './pdf.worker.mjs',
@@ -676,6 +677,8 @@ export function Editor() {
               Jump
             </Button>
           </div>
+
+          <ThumbnailViewer />
         </div>
       </div>
     </div>
