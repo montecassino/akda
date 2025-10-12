@@ -15,6 +15,7 @@ export interface Dimensions {
 
 export type PdfPagesDimensions = Record<number, Dimensions>
 export type PdfStrokes = Record<number, Stroke[]>
+export type PdfPagesThumbnails = Record<number, string>
 
 export interface LoadPdfResponse {
   pdf_entry: PdfEntry
@@ -22,7 +23,7 @@ export interface LoadPdfResponse {
 }
 
 export interface PdfEditorSyncProps {
-  id: number,
+  id: number
   penColor: string
   penThickness: number
   highlighterColor: string

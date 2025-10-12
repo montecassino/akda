@@ -5,6 +5,7 @@ import type {
   LoadPdfResponse,
   PdfEditorSyncProps,
   PdfEntry,
+  PdfPagesThumbnails,
   PdfStrokes,
 } from '@/types/pdf'
 import { toast } from 'sonner'
@@ -16,6 +17,8 @@ export const pdfQueryKeys = {
   loadPdf: (id: number) => [...pdfQueryKeys.all, id] as const,
   loadPdfStrokes: (id: number) =>
     [...pdfQueryKeys.all, 'pdf_strokes', id] as const,
+  loadPdfThumbnails: (id: number) =>
+    [...pdfQueryKeys.all, 'pdf_thumbnails', id] as const,
   loadEditorSettings: (id: number) => [
     ...pdfQueryKeys.all,
     'editor_settings',
@@ -78,6 +81,29 @@ export function useLoadPdfStrokes(id: number) {
       } catch (error) {
         // Return defaults if preferences file doesn't exist yet
         logger.warn('Failed to load pdf strokes, using defaults', { error })
+        return {}
+      }
+    },
+    gcTime: 0,
+    staleTime: 0,
+  })
+}
+
+export function useLoadPdfThumbnails(id: number) {
+  return useQuery({
+    queryKey: pdfQueryKeys.loadPdfThumbnails(id),
+    queryFn: async (): Promise<PdfPagesThumbnails> => {
+      try {
+        logger.debug('Loading pdf thumbnails from backend')
+
+        const response = await invoke<PdfPagesThumbnails>('load_thumbnails', {
+          pdfId: id,
+        })
+        logger.info('Pdf thumbnails loaded successfully', { response })
+        return response
+      } catch (error) {
+        // Return defaults if preferences file doesn't exist yet
+        logger.warn('Failed to load pdf thumbnails, using defaults', { error })
         return {}
       }
     },
@@ -156,17 +182,21 @@ export function useRemovePdf() {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown error occurred'
-        logger.error('Failed to remove pdf', {
-          error,
-          id,
-          name,
-        })
+        logger.error('Failed to remove pdf', { error, id })
         toast.error('Failed to remove pdf', { description: message })
         throw error
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pdf'] })
+    onSuccess: (_, { id }) => {
+      queryClient.removeQueries({ queryKey: pdfQueryKeys.loadPdf(id) })
+      queryClient.removeQueries({ queryKey: pdfQueryKeys.loadPdfStrokes(id) })
+      queryClient.removeQueries({
+        queryKey: pdfQueryKeys.loadPdfThumbnails(id),
+      })
+      queryClient.removeQueries({
+        queryKey: pdfQueryKeys.loadEditorSettings(id),
+      })
+      queryClient.invalidateQueries({ queryKey: pdfQueryKeys.pdfList() })
     },
   })
 }

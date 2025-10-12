@@ -26,15 +26,21 @@ import {
   useLoadEditorSettings,
   useLoadPdf,
   useLoadPdfStrokes,
+  useLoadPdfThumbnails,
   useSavePdfStrokes,
 } from '@/services/pdf'
-import type { PdfPagesDimensions } from '@/types/pdf'
+import type {
+  PdfPagesDimensions,
+  PdfPagesThumbnails,
+  PdfStrokes,
+} from '@/types/pdf'
 import { MemoizedCanvas } from './Canvas'
 import type { Stroke, ToolType } from '@/types/editor'
 import { cn } from '@/lib/utils'
 import { useEditorSync } from '@/hooks/use-editor-sync'
 import { useBookmarks } from '@/hooks/use-bookmarks'
 import ThumbnailViewer from './ThumbnailViewer'
+import { listen } from '@tauri-apps/api/event'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   './pdf.worker.mjs',
@@ -47,6 +53,7 @@ export function Editor() {
     parseInt(pdfId)
   )
   const { data: _strokes = {} } = useLoadPdfStrokes(parseInt(pdfId))
+  const { data: _thumbnails = {} } = useLoadPdfThumbnails(parseInt(pdfId))
   const { data: editorSettings } = useLoadEditorSettings(parseInt(pdfId))
   const { mutate: mutateSavePdfStrokes } = useSavePdfStrokes()
 
@@ -62,7 +69,8 @@ export function Editor() {
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [pageDimensions, setPageDimensions] = useState<PdfPagesDimensions>({})
 
-  const [strokes, setStrokes] = useState<Record<number, Stroke[]>>({})
+  const [strokes, setStrokes] = useState<PdfStrokes>({})
+  const [thumbnails, setThumbnails] = useState<PdfPagesThumbnails>({})
 
   const { toggleBookmark, isPageBookmarked } = useBookmarks()
 
@@ -87,6 +95,33 @@ export function Editor() {
   useEffect(() => {
     setStrokes(_strokes)
   }, [_strokes])
+
+  useEffect(() => {
+    setThumbnails(_thumbnails)
+  }, [_thumbnails])
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    let cancelled = false
+
+    listen<PdfPagesThumbnails>('thumbnail-extracted', event => {
+      const thumbnail = event.payload
+
+      setThumbnails(prev => ({ ...prev, ...thumbnail }))
+    }).then(fn => {
+      if (!cancelled) unlisten = fn
+    })
+
+    return () => {
+      cancelled = true
+      if (unlisten) unlisten()
+    }
+  }, [])
+
+  const thumbnailList = useMemo(
+    () => Object.keys(thumbnails).map(t => thumbnails[parseInt(t)] ?? ''),
+    [thumbnails]
+  )
 
   useEffect(() => {
     const loadPdf = async () => {
@@ -678,7 +713,13 @@ export function Editor() {
             </Button>
           </div>
 
-          <ThumbnailViewer />
+          <ThumbnailViewer
+            images={thumbnailList}
+            onPageChange={i => {
+              const page = (i + 1).toString()
+              handleJumpToPage(page)
+            }}
+          />
         </div>
       </div>
     </div>

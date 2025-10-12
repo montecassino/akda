@@ -5,7 +5,7 @@ use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::{collections::HashMap, fs, path::Path, process::Command};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 fn open_folder(path: &std::path::Path) -> Result<(), String> {
     if cfg!(target_os = "windows") {
@@ -170,7 +170,6 @@ impl PdfPagesDimensions {
     }
 }
 
-
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PdfPagesThumbnails {
     #[serde(flatten)]
@@ -206,6 +205,7 @@ impl LoadPdfResponse {
 }
 
 fn extract_page_thumbnails(
+    app_handle: &tauri::AppHandle,
     pdfium_path: &PathBuf,
     pdf_path: &str,
     folder_path: &PathBuf,
@@ -238,7 +238,9 @@ fn extract_page_thumbnails(
             .render(thumb_width, thumb_height, None)
             .map_err(|e| e.to_string())?;
 
-        let thumb_path = thumbs_dir.join(format!("page_{page_no}.jpg"));
+        let now = Local::now();
+        let timestamp = now.format("%Y%m%d_%H%M%S").to_string();
+        let thumb_path = thumbs_dir.join(format!("page_{page_no}_{timestamp}.jpg"));
         bitmap
             .as_image()
             .save(&thumb_path)
@@ -246,16 +248,19 @@ fn extract_page_thumbnails(
 
         // ux wise lets stream this to front end as it inserts
         page_thumbs.insert(page_no, thumb_path.to_str().unwrap().to_string());
-    }
 
-    let thumbs_path = folder_path.join("page_thumbnails.json");
-    let thumbs_serialized =
-        serde_json::to_string_pretty(&page_thumbs).map_err(|e| e.to_string())?;
-    fs::write(&thumbs_path, thumbs_serialized).map_err(|e| e.to_string())?;
+        let mut page_thumb = PdfPagesThumbnails::new();
+        page_thumb.insert(page_no, thumb_path.to_str().unwrap().to_string());
+        app_handle.emit("thumbnail-extracted", &page_thumbs).unwrap();
+
+        let thumbs_path = folder_path.join("page_thumbnails.json");
+        let thumbs_serialized =
+            serde_json::to_string_pretty(&page_thumbs).map_err(|e| e.to_string())?;
+        fs::write(&thumbs_path, thumbs_serialized).map_err(|e| e.to_string())?;
+    }
 
     Ok(())
 }
-
 
 #[tauri::command]
 pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<String, String> {
@@ -354,7 +359,7 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
     let thread_folder_path = folder_path.clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        extract_page_thumbnails(&pdfium_lib_path, &thread_clone_path, &thread_folder_path)
+        extract_page_thumbnails(&app_handle, &pdfium_lib_path, &thread_clone_path, &thread_folder_path)
     });
 
     Ok(format!("Registered PDF"))
@@ -549,6 +554,28 @@ pub fn load_pdf_strokes(app_handle: tauri::AppHandle, pdf_id: u32) -> Result<Pdf
     };
 
     Ok(strokes)
+}
+
+#[tauri::command]
+pub fn load_thumbnails(app_handle: tauri::AppHandle, pdf_id: u32) -> Result<PdfPagesThumbnails, String> {
+    log::info!("Loading pdf thumbnails: {pdf_id}");
+
+    // This will handle platform specific app data directories
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let thumbnails_path = app_data_dir.join(format!("pdf_{pdf_id}/page_thumbnails.json"));
+
+    let thumbnails: PdfPagesThumbnails = if thumbnails_path.exists() {
+        let data = fs::read_to_string(&thumbnails_path).map_err(|e| e.to_string())?;
+        serde_json::from_str::<PdfPagesThumbnails>(&data).map_err(|e| e.to_string())?
+    } else {
+        PdfPagesThumbnails::new()
+    };
+
+    Ok(thumbnails)
 }
 
 #[tauri::command]

@@ -538,6 +538,7 @@ pub fn run() {
             pdf::load_pdf,
             pdf::save_pdf_strokes,
             pdf::load_pdf_strokes,
+            pdf::load_thumbnails,
             pdf::rename_pdf,
             pdf::save_editor_settings,
             pdf::load_editor_settings
