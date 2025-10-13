@@ -206,7 +206,7 @@ export default function ThumbnailViewer({
     () =>
       Object.entries(bookmarks)
         .filter(([_, val]) => val)
-        .map(([key]) => Number(key)),
+        .map(([key]) => Number(parseInt(key) - 1)),
     [bookmarks]
   )
 

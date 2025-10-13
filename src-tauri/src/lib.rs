@@ -541,7 +541,11 @@ pub fn run() {
             pdf::load_thumbnails,
             pdf::rename_pdf,
             pdf::save_editor_settings,
-            pdf::load_editor_settings
+            pdf::load_editor_settings,
+            pdf::get_pdf_bookmarks,
+            pdf::add_pdf_bookmark,
+            pdf::update_pdf_bookmark,
+            pdf::delete_pdf_bookmark
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

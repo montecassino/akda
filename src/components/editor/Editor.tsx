@@ -80,7 +80,9 @@ export function Editor() {
   const [strokes, setStrokes] = useState<PdfStrokes>({})
   const [thumbnails, setThumbnails] = useState<PdfPagesThumbnails>({})
 
-  const { toggleBookmark, isPageBookmarked } = useBookmarks()
+  const { toggleBookmark, isPageBookmarked, bookmarkedPages } = useBookmarks(
+    parseInt(pdfId)
+  )
 
   const parentRef = useRef<HTMLDivElement>(null)
 
@@ -756,6 +758,7 @@ export function Editor() {
 
           <ThumbnailViewer
             images={thumbnailList}
+            bookmarks={bookmarkedPages}
             onPageChange={i => {
               const page = (i + 1).toString()
               handleJumpToPage(page)

@@ -32,3 +32,8 @@ export interface PdfEditorSyncProps {
   currentPage: number
   scale: number
 }
+
+export interface PdfBookmark {
+  page_number: number
+  label: string
+}

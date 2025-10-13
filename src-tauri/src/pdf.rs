@@ -210,6 +210,14 @@ struct ExtractOptions {
     dims: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PdfBookmark {
+    pub page_number: u32,     
+    pub label: String,        
+}
+
+pub type PdfBookmarks = Vec<PdfBookmark>;
+
 fn extract_pdf_data(
     app_handle: &AppHandle,
     pdfium_path: &PathBuf,
@@ -648,3 +656,118 @@ pub fn load_editor_settings(
 
     Ok(settings)
 }
+
+// Bookmarks
+fn get_bookmarks_path(app_handle: &AppHandle, pdf_id: u64) -> Result<PathBuf, String> {
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+    Ok(app_data_dir.join(format!("pdf_{pdf_id}/bookmarks.json")))
+}
+
+fn load_bookmarks_from_file(path: &PathBuf) -> Result<PdfBookmarks, String> {
+    if !path.exists() {
+        return Ok(vec![]); 
+    }
+
+    let data = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    if data.trim().is_empty() {
+        return Ok(vec![]);
+    }
+
+    serde_json::from_str::<PdfBookmarks>(&data).map_err(|e| format!("Invalid JSON: {e}"))
+}
+
+fn save_bookmarks_to_file(path: &PathBuf, bookmarks: &PdfBookmarks) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let data = serde_json::to_string_pretty(bookmarks).map_err(|e| e.to_string())?;
+    fs::write(path, data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_pdf_bookmarks(app_handle: AppHandle, pdf_id: u64) -> Result<PdfBookmarks, String> {
+    log::info!("Loading bookmarks for PDF {pdf_id}");
+
+    let path = get_bookmarks_path(&app_handle, pdf_id)?;
+    load_bookmarks_from_file(&path)
+}
+
+#[tauri::command]
+pub fn add_pdf_bookmark(
+    app_handle: AppHandle,
+    pdf_id: u64,
+    page_number: u32,
+    label: String,
+) -> Result<PdfBookmarks, String> {
+    log::info!("Adding bookmark to PDF {pdf_id} - page {page_number}");
+
+    if label.trim().is_empty() {
+        return Err("Label cannot be empty".to_string());
+    }
+
+    let path = get_bookmarks_path(&app_handle, pdf_id)?;
+    let mut bookmarks = load_bookmarks_from_file(&path)?;
+
+    let new_bookmark = PdfBookmark {
+        page_number,
+        label,
+    };
+
+    bookmarks.push(new_bookmark);
+    save_bookmarks_to_file(&path, &bookmarks)?;
+
+    Ok(bookmarks)
+}
+
+#[tauri::command]
+pub fn update_pdf_bookmark(
+    app_handle: AppHandle,
+    pdf_id: u64,
+    label: Option<String>,
+    page_number: u32,
+) -> Result<PdfBookmarks, String> {
+    log::info!("Updating bookmark {page_number} in PDF {pdf_id}");
+
+    let path = get_bookmarks_path(&app_handle, pdf_id)?;
+    let mut bookmarks = load_bookmarks_from_file(&path)?;
+
+    if let Some(bm) = bookmarks.iter_mut().find(|b| b.page_number == page_number) {
+        if let Some(lbl) = label {
+            if lbl.trim().is_empty() {
+                return Err("Label cannot be empty".to_string());
+            }
+            bm.label = lbl;
+        }
+    } else {
+        return Err(format!("Bookmark with id {page_number} not found"));
+    }
+
+    save_bookmarks_to_file(&path, &bookmarks)?;
+    Ok(bookmarks)
+}
+
+#[tauri::command]
+pub fn delete_pdf_bookmark(
+    app_handle: AppHandle,
+    pdf_id: u64,
+    page_number: u32,
+) -> Result<PdfBookmarks, String> {
+    log::info!("Deleting bookmark {page_number} in PDF {pdf_id}");
+
+    let path = get_bookmarks_path(&app_handle, pdf_id)?;
+    let mut bookmarks = load_bookmarks_from_file(&path)?;
+
+    let before_len = bookmarks.len();
+    bookmarks.retain(|b| b.page_number != page_number);
+
+    if bookmarks.len() == before_len {
+        return Err(format!("Bookmark with id {page_number} not found"));
+    }
+
+    save_bookmarks_to_file(&path, &bookmarks)?;
+    Ok(bookmarks)
+}
+
