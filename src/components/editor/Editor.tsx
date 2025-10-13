@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+  useLayoutEffect,
+} from 'react'
 import { Document, pdfjs } from 'react-pdf'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { Button } from '@/components/ui/button'
@@ -62,6 +69,7 @@ export function Editor() {
   const [numPages, setNumPages] = useState<number>(0)
   const [scale, setScale] = useState<number>(1.0)
   const [pdfData, setPdfData] = useState<ArrayBuffer | undefined>(undefined)
+
   const [jumpPage, setJumpPage] = useState<string>('')
 
   const [currentTool, setCurrentTool] = useState<ToolType>('pointer')
@@ -101,22 +109,49 @@ export function Editor() {
   }, [_thumbnails])
 
   useEffect(() => {
-    let unlisten: (() => void) | undefined
+    let unlistenThumbs: (() => void) | undefined
+    let unlistenDims: (() => void) | undefined
     let cancelled = false
 
     listen<PdfPagesThumbnails>('thumbnail-extracted', event => {
       const thumbnail = event.payload
-
       setThumbnails(prev => ({ ...prev, ...thumbnail }))
     }).then(fn => {
-      if (!cancelled) unlisten = fn
+      if (!cancelled) unlistenThumbs = fn
+    })
+
+    listen<PdfPagesDimensions>('page-dimensions-extracted', event => {
+      const dims = event.payload
+      setPageDimensions(prev => ({ ...prev, ...dims }))
+    }).then(fn => {
+      if (!cancelled) unlistenDims = fn
     })
 
     return () => {
       cancelled = true
-      if (unlisten) unlisten()
+      if (unlistenThumbs) unlistenThumbs()
+      if (unlistenDims) unlistenDims()
     }
   }, [])
+
+  const averageDimensions = useMemo(() => {
+    const values = Object.values(pageDimensions)
+    if (values.length === 0) return { width: 0, height: 0 }
+
+    const total = values.reduce(
+      (acc, { width, height }) => {
+        acc.width += width
+        acc.height += height
+        return acc
+      },
+      { width: 0, height: 0 }
+    )
+
+    return {
+      width: total.width / values.length,
+      height: total.height / values.length,
+    }
+  }, [pageDimensions])
 
   const thumbnailList = useMemo(
     () => Object.keys(thumbnails).map(t => thumbnails[parseInt(t)] ?? ''),
@@ -146,6 +181,12 @@ export function Editor() {
     },
     []
   )
+
+  const [pdfKey, setPdfKey] = useState(0)
+
+  useLayoutEffect(() => {
+    setPdfKey(prevKey => prevKey + 1)
+  }, [pdfData])
 
   // Memoized zoom handlers
   const zoomIn = useCallback(
@@ -589,69 +630,69 @@ export function Editor() {
 
         <div className="flex-1 overflow-auto bg-gray-100 py-10" ref={parentRef}>
           <div className="flex flex-col items-center">
-            {pdfData && (
-              <Document
-                file={pdfData}
-                onLoadSuccess={onDocumentLoadSuccess}
-                loading={<Spinner variant="ring" />}
-                error={<p className="text-destructive">Failed to load PDF</p>}
+            <Document
+              key={pdfKey}
+              file={pdfData}
+              onLoadSuccess={onDocumentLoadSuccess}
+              loading={<Spinner variant="ring" />}
+              error={<p className="text-destructive">Failed to load PDF</p>}
+            >
+              <div
+                style={{
+                  height: rowVirtualizer.getTotalSize(),
+                  position: 'relative',
+                  width: '100%',
+                }}
               >
-                <div
-                  style={{
-                    height: rowVirtualizer.getTotalSize(),
-                    position: 'relative',
-                    width: '100%',
-                  }}
-                >
-                  {rowVirtualizer.getVirtualItems().map(virtualRow => {
-                    const pageNum = virtualRow.index + 1
-                    const dims = pageDimensions[pageNum]
-                    const s = strokes[pageNum] ?? []
+                {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                  const pageNum = virtualRow.index + 1
+                  const dims = pageDimensions[pageNum]
 
-                    return (
-                      <div
-                        key={pageNum}
-                        ref={rowVirtualizer.measureElement}
-                        data-index={virtualRow.index}
-                        style={{
-                          position: 'absolute',
-                          left: '50%',
-                          transform: `translate(-50%, ${virtualRow.start}px)`,
-                          height: `${virtualRow.size}px`,
-                        }}
-                      >
-                        <div className="relative">
-                          <div className="absolute inset-0 z-10">
-                            <MemoizedCanvas
-                              id={pageNum}
-                              tool={currentTool}
-                              savePdfStrokes={savePdfStrokes}
-                              strokes={s}
-                              scale={scale}
-                              height={dims?.height}
-                              width={dims?.width}
-                              penColor={penColor}
-                              highlighterColor={highlighterColor}
-                              penThickness={penThickness}
-                              highlighterThickness={highlighterThickness}
-                              eraserThickness={eraserThickness}
-                            />
-                          </div>
+                  const s = strokes[pageNum] ?? []
 
-                          <MemoizedPageWrapper
-                            pageNumber={pageNum}
+                  return (
+                    <div
+                      key={pageNum}
+                      ref={rowVirtualizer.measureElement}
+                      data-index={virtualRow.index}
+                      style={{
+                        position: 'absolute',
+                        left: '50%',
+                        transform: `translate(-50%, ${virtualRow.start}px)`,
+                        height: `${virtualRow.size}px`,
+                      }}
+                    >
+                      <div className="relative">
+                        <div className="absolute inset-0 z-10">
+                          <MemoizedCanvas
+                            id={pageNum}
+                            tool={currentTool}
+                            savePdfStrokes={savePdfStrokes}
+                            strokes={s}
                             scale={scale}
-                            onPageChange={setCurrentPage}
-                            pageWidth={dims?.width}
-                            pageHeight={dims?.height}
+                            height={dims?.height ?? averageDimensions?.height}
+                            width={dims?.width ?? averageDimensions?.width}
+                            penColor={penColor}
+                            highlighterColor={highlighterColor}
+                            penThickness={penThickness}
+                            highlighterThickness={highlighterThickness}
+                            eraserThickness={eraserThickness}
                           />
                         </div>
+
+                        <MemoizedPageWrapper
+                          pageNumber={pageNum}
+                          scale={scale}
+                          onPageChange={setCurrentPage}
+                          pageWidth={dims?.width}
+                          pageHeight={dims?.height}
+                        />
                       </div>
-                    )
-                  })}
-                </div>
-              </Document>
-            )}
+                    </div>
+                  )
+                })}
+              </div>
+            </Document>
 
             {!pdfInformation && !pdfData && !isLoadingPdf && (
               <p className="text-destructive">Could not load document data</p>

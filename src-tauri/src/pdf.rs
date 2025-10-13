@@ -5,7 +5,7 @@ use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::{collections::HashMap, fs, path::Path, process::Command};
-use tauri::{Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 fn open_folder(path: &std::path::Path) -> Result<(), String> {
     if cfg!(target_os = "windows") {
@@ -204,12 +204,23 @@ impl LoadPdfResponse {
     }
 }
 
-fn extract_page_thumbnails(
-    app_handle: &tauri::AppHandle,
+#[derive(Default)]
+struct ExtractOptions {
+    thumbnail: bool,
+    dims: bool,
+}
+
+fn extract_pdf_data(
+    app_handle: &AppHandle,
     pdfium_path: &PathBuf,
     pdf_path: &str,
     folder_path: &PathBuf,
+    options: ExtractOptions,
 ) -> Result<(), String> {
+    if !options.thumbnail && !options.dims {
+        return Ok(()); // nothing to do
+    }
+
     let pdfium = Pdfium::new(
         Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(pdfium_path))
             .or_else(|_| Pdfium::bind_to_system_library())
@@ -220,10 +231,17 @@ fn extract_page_thumbnails(
         .load_pdf_from_file(pdf_path, None)
         .map_err(|e| e.to_string())?;
 
+    // Prepare output folders/files
     let thumbs_dir = folder_path.join("thumbnails");
-    fs::create_dir_all(&thumbs_dir).map_err(|e| e.to_string())?;
+    let thumbs_path = folder_path.join("thumbs.json");
+    let dims_path = folder_path.join("dims.json");
+
+    if options.thumbnail {
+        fs::create_dir_all(&thumbs_dir).map_err(|e| e.to_string())?;
+    }
 
     let mut page_thumbs = PdfPagesThumbnails::new();
+    let mut pdf_pages_dims = PdfPagesDimensions::new();
 
     for (i, page) in document.pages().iter().enumerate() {
         let page_no = i as u32 + 1;
@@ -231,32 +249,42 @@ fn extract_page_thumbnails(
         let height = size.height().value;
         let width = size.width().value;
 
-        let thumb_width = (width / 3.0) as i32;
-        let thumb_height = (height / 3.0) as i32;
+        if options.dims {
+            pdf_pages_dims.insert(page_no, Dimensions::new(height, width));
 
-        let bitmap = page
-            .render(thumb_width, thumb_height, None)
-            .map_err(|e| e.to_string())?;
+                   let serialized =
+            serde_json::to_string_pretty(&pdf_pages_dims).map_err(|e| e.to_string())?;
+        fs::write(&dims_path, serialized).map_err(|e| e.to_string())?;
 
-        let now = Local::now();
-        let timestamp = now.format("%Y%m%d_%H%M%S").to_string();
-        let thumb_path = thumbs_dir.join(format!("page_{page_no}_{timestamp}.jpg"));
-        bitmap
-            .as_image()
-            .save(&thumb_path)
-            .map_err(|e| e.to_string())?;
+        app_handle.emit("page-dimensions-extracted", &pdf_pages_dims).unwrap();
+        }
 
-        // ux wise lets stream this to front end as it inserts
-        page_thumbs.insert(page_no, thumb_path.to_str().unwrap().to_string());
+        if options.thumbnail {
+            let thumb_width = (width / 3.0) as i32;
+            let thumb_height = (height / 3.0) as i32;
 
-        let mut page_thumb = PdfPagesThumbnails::new();
-        page_thumb.insert(page_no, thumb_path.to_str().unwrap().to_string());
-        app_handle.emit("thumbnail-extracted", &page_thumbs).unwrap();
+            let bitmap = page
+                .render(thumb_width, thumb_height, None)
+                .map_err(|e| e.to_string())?;
 
-        let thumbs_path = folder_path.join("page_thumbnails.json");
-        let thumbs_serialized =
-            serde_json::to_string_pretty(&page_thumbs).map_err(|e| e.to_string())?;
-        fs::write(&thumbs_path, thumbs_serialized).map_err(|e| e.to_string())?;
+            let now = Local::now();
+            let timestamp = now.format("%Y%m%d_%H%M%S").to_string();
+            let thumb_path = thumbs_dir.join(format!("page_{page_no}_{timestamp}.jpg"));
+            bitmap
+                .as_image()
+                .save(&thumb_path)
+                .map_err(|e| e.to_string())?;
+
+            page_thumbs.insert(page_no, thumb_path.to_str().unwrap().to_string());
+
+            // Incremental emit
+            app_handle.emit("thumbnail-extracted", &page_thumbs).unwrap();
+
+            // Persist thumbnails incrementally
+            let thumbs_serialized =
+                serde_json::to_string_pretty(&page_thumbs).map_err(|e| e.to_string())?;
+            fs::write(&thumbs_path, thumbs_serialized).map_err(|e| e.to_string())?;
+        }
     }
 
     Ok(())
@@ -359,7 +387,9 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
     let thread_folder_path = folder_path.clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        extract_page_thumbnails(&app_handle, &pdfium_lib_path, &thread_clone_path, &thread_folder_path)
+        // extract_page_thumbnails(&app_handle, &pdfium_lib_path, &thread_clone_path, &thread_folder_path)
+
+        extract_pdf_data(&app_handle, &pdfium_lib_path, &thread_clone_path, &thread_folder_path, ExtractOptions{thumbnail: true, dims: true})
     });
 
     Ok(format!("Registered PDF"))
@@ -453,43 +483,9 @@ pub async fn load_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<LoadPdfRe
 
     let dims_path = app_data_dir.join(format!("pdf_{id}/dims.json"));
 
-    let pdf_pages_dims = if !dims_path.exists() {
-        let mut pdf_pages_dims: PdfPagesDimensions = PdfPagesDimensions::new();
-
-        let state = app_handle.state::<AppState>();
-
-        let pdfium_path = &state.lib_path;
-
-        let pdfium = Pdfium::new(
-            Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(pdfium_path))
-                .or_else(|_| Pdfium::bind_to_system_library())
-                .unwrap(), // Or use the ? unwrapping operator to pass any error up to the caller
-        );
-
-        let document = pdfium
-            .load_pdf_from_file(&pdf_entry.clone_path, None)
-            .map_err(|e| e.to_string())?;
-
-        for (i, page) in document.pages().iter().enumerate() {
-            let size = page.page_size();
-            let height = size.height().value;
-            let width = size.width().value;
-            let page_no = i as u32 + 1;
-            pdf_pages_dims.insert(page_no, Dimensions::new(height, width));
-        }
-
-        // store it
-        let serialized =
-            serde_json::to_string_pretty(&pdf_pages_dims).map_err(|e| e.to_string())?;
-        fs::write(&dims_path, serialized).map_err(|e| e.to_string())?;
-
-        pdf_pages_dims
-    } else {
-        let data = fs::read_to_string(&dims_path).map_err(|e| e.to_string())?;
-        let pdf_pages_dims =
+    let data = fs::read_to_string(&dims_path).map_err(|e| e.to_string())?;
+    let pdf_pages_dims =
             serde_json::from_str::<PdfPagesDimensions>(&data).map_err(|e| e.to_string())?;
-        pdf_pages_dims
-    };
 
     Ok(LoadPdfResponse::new(pdf_entry, pdf_pages_dims))
 }
@@ -566,7 +562,7 @@ pub fn load_thumbnails(app_handle: tauri::AppHandle, pdf_id: u32) -> Result<PdfP
         .app_data_dir()
         .map_err(|e| e.to_string())?;
 
-    let thumbnails_path = app_data_dir.join(format!("pdf_{pdf_id}/page_thumbnails.json"));
+    let thumbnails_path = app_data_dir.join(format!("pdf_{pdf_id}/thumbs.json"));
 
     let thumbnails: PdfPagesThumbnails = if thumbnails_path.exists() {
         let data = fs::read_to_string(&thumbnails_path).map_err(|e| e.to_string())?;
