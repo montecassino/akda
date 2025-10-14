@@ -113,11 +113,10 @@ pub fn rename_collection(app: AppHandle, id: String, new_name: String) -> Result
     Ok(true)
 }
 
-
 // Delete collection
 #[tauri::command]
 pub fn delete_collection(app: AppHandle, id: String) -> Result<bool, String> {
-     let path = collections_file_path(&app)?;
+    let path = collections_file_path(&app)?;
     let mut data = read_collections(&path)?;
 
     let original_len = data.collections.len();
@@ -130,7 +129,6 @@ pub fn delete_collection(app: AppHandle, id: String) -> Result<bool, String> {
     write_collections(&path, &data)?;
     Ok(true)
 }
-
 
 #[tauri::command]
 pub fn change_collection_color(

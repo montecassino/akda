@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "akda",
+  "productName": "Akda",
   "version": "0.1.0",
   "identifier": "com.marbelona.akda",
   "build": {
@@ -13,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "akda-app",
+        "title": "Akda",
         "width": 800,
         "height": 600,
         "minWidth": 1000,
@@ -56,7 +56,7 @@
       "icons/icon.ico"
     ],
     "publisher": "Marbelona",
-    "category": "PDF Anotation Tool",
+    "category": "Utility",
     "shortDescription": "",
     "longDescription": "",
     "copyright": "Copyright © 2025 Marbelona. All rights reserved.",
@@ -76,7 +76,7 @@
         "https://github.com/YOUR_USERNAME/YOUR_REPO/releases/latest/download/latest.json"
       ],
       "dialog": true,
-      "pubkey": "YOUR_UPDATER_PUBLIC_KEY_HERE"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJBMUZFNzY4QzBDMDUzMDUKUldRRlU4REFhT2NmdWpyWmE2SWNRQ3NOS2pselYrMVF1WC80cU9qdS91SlF2Q3NXd3FGbDIxTFAK"
     }
   }
 }
