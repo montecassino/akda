@@ -432,13 +432,6 @@ export function Editor() {
             </span>
           </h1>
         </div>
-
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline">
-            Save
-          </Button>
-          <Button size="sm">Export</Button>
-        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">

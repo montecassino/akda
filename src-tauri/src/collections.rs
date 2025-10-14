@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Collection {
     pub id: String,
     pub name: String,
@@ -82,7 +83,7 @@ pub fn create_collection(
 }
 
 #[tauri::command]
-pub fn rename_collection(app: AppHandle, id: String, new_name: String) -> Result<(), String> {
+pub fn rename_collection(app: AppHandle, id: String, new_name: String) -> Result<bool, String> {
     if new_name.trim().is_empty() {
         return Err("Collection name cannot be empty".into());
     }
@@ -109,15 +110,34 @@ pub fn rename_collection(app: AppHandle, id: String, new_name: String) -> Result
 
     col.name = new_name;
     write_collections(&path, &data)?;
-    Ok(())
+    Ok(true)
 }
+
+
+// Delete collection
+#[tauri::command]
+pub fn delete_collection(app: AppHandle, id: String) -> Result<bool, String> {
+     let path = collections_file_path(&app)?;
+    let mut data = read_collections(&path)?;
+
+    let original_len = data.collections.len();
+    data.collections.retain(|c| c.id != id);
+
+    if data.collections.len() == original_len {
+        return Err("Collection not found".into());
+    }
+
+    write_collections(&path, &data)?;
+    Ok(true)
+}
+
 
 #[tauri::command]
 pub fn change_collection_color(
     app: AppHandle,
     id: String,
     new_color: String,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let path = collections_file_path(&app)?;
     let mut data = read_collections(&path)?;
 
@@ -129,23 +149,7 @@ pub fn change_collection_color(
 
     col.color = new_color;
     write_collections(&path, &data)?;
-    Ok(())
-}
-
-#[tauri::command]
-pub fn delete_collection(app: AppHandle, id: String) -> Result<(), String> {
-    let path = collections_file_path(&app)?;
-    let mut data = read_collections(&path)?;
-
-    let before = data.collections.len();
-    data.collections.retain(|c| c.id != id);
-
-    if data.collections.len() == before {
-        return Err("Collection not found".into());
-    }
-
-    write_collections(&path, &data)?;
-    Ok(())
+    Ok(true)
 }
 
 #[tauri::command]
@@ -153,7 +157,7 @@ pub fn add_pdf_to_collection(
     app: AppHandle,
     collection_id: String,
     pdf_id: String,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let path = collections_file_path(&app)?;
     let mut data = read_collections(&path)?;
 
@@ -165,7 +169,7 @@ pub fn add_pdf_to_collection(
 
     col.pdf_ids.insert(pdf_id, true);
     write_collections(&path, &data)?;
-    Ok(())
+    Ok(true)
 }
 
 #[tauri::command]
@@ -173,7 +177,7 @@ pub fn remove_pdf_from_collection(
     app: AppHandle,
     collection_id: String,
     pdf_id: String,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let path = collections_file_path(&app)?;
     let mut data = read_collections(&path)?;
 
@@ -185,7 +189,7 @@ pub fn remove_pdf_from_collection(
 
     col.pdf_ids.remove(&pdf_id);
     write_collections(&path, &data)?;
-    Ok(())
+    Ok(true)
 }
 
 #[tauri::command]

@@ -24,23 +24,24 @@ import {
 } from '@/components/ui/alert-dialog'
 import { open } from '@tauri-apps/plugin-dialog'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
-import type { PdfEntry } from '@/types/pdf'
+import type { PdfEntry, Collection } from '@/types/pdf' // Import Collection type
 import { useFetchPdfList, useRemovePdf, useRenamePdf } from '@/services/pdf'
+import {
+  useFetchCollections,
+  useCreateCollection,
+  useRenameCollection,
+  useDeleteCollection,
+  useTogglePdfInCollection,
+  useRemovePdfFromAllCollections,
+} from '@/services/collections' // Import new hooks
 import { Spinner } from '../ui/shadcn-io/spinner'
 import { useNavigate } from '@tanstack/react-router'
 import { Textarea } from '../ui/textarea'
 import { Input } from '../ui/input'
 
-interface Collection {
-  id: string
-  name: string
-  color: string
-  pdfIds: string[]
-}
-
 interface FileItemProps extends PdfEntry {
-  doRenamePdf: ({ id, newName }: { id: number; newName: string }) => void
-  doRemovePdf: ({ id }: { id: number }) => void
+  doRenamePdf: ({ id, newName }: { id: string; newName: string }) => void // id is string now
+  doRemovePdf: ({ id }: { id: string }) => void // id is string now
   collections: Collection[]
   onToggleCollection: (pdfId: string, collectionId: string) => void
 }
@@ -60,6 +61,9 @@ const FileItem: React.FC<FileItemProps> = ({
   const [isHovered, setIsHovered] = React.useState(false)
   const [showCollections, setShowCollections] = React.useState(false)
 
+  const { mutate: removePdfFromAllCollections } =
+    useRemovePdfFromAllCollections()
+
   const handleNavigate = () => {
     if (!isRenaming) {
       navigate({ to: `/editor/${id}`, params: { id } })
@@ -68,6 +72,7 @@ const FileItem: React.FC<FileItemProps> = ({
 
   const handleMouseEnter = () => setIsHovered(true)
   const handleMouseLeave = () => {
+    if (!isRenaming) setShowCollections(false) // Close collections dropdown on mouse leave
     if (!isRenaming) setIsHovered(false)
   }
 
@@ -79,7 +84,7 @@ const FileItem: React.FC<FileItemProps> = ({
       return
     }
     try {
-      doRenamePdf({ id: parseInt(id), newName })
+      doRenamePdf({ id, newName })
       setIsRenaming(false)
     } catch {
       setIsRenaming(false)
@@ -88,13 +93,8 @@ const FileItem: React.FC<FileItemProps> = ({
   }
 
   const handleDelete = async () => {
-    doRemovePdf({ id: parseInt(id) })
-    // Remove this PDF from all collections
-    collections.forEach(collection => {
-      if (collection.pdfIds.includes(id)) {
-        onToggleCollection(id, collection.id)
-      }
-    })
+    doRemovePdf({ id })
+    removePdfFromAllCollections({ pdfId: id.toString() })
   }
 
   return (
@@ -134,7 +134,7 @@ const FileItem: React.FC<FileItemProps> = ({
                     </div>
                   ) : (
                     collections.map(collection => {
-                      const isInCollection = collection.pdfIds.includes(id)
+                      const isInCollection = collection.pdfIds[id]
                       return (
                         <button
                           key={collection.id}
@@ -273,8 +273,8 @@ const PdfListArea = ({
 }: {
   pdfList: PdfEntry[]
   isLoading: boolean
-  doRenamePdf: ({ id, newName }: { id: number; newName: string }) => void
-  doRemovePdf: ({ id }: { id: number }) => void
+  doRenamePdf: ({ id, newName }: { id: string; newName: string }) => void
+  doRemovePdf: ({ id }: { id: string }) => void
   collections: Collection[]
   onToggleCollection: (pdfId: string, collectionId: string) => void
 }) => {
@@ -316,6 +316,10 @@ const CollectionsSidebar = ({
   onAddCollection,
   onDeleteCollection,
   onRenameCollection,
+  isAddingCollection,
+  setIsAddingCollection,
+  newCollectionName,
+  setNewCollectionName,
 }: {
   collections: Collection[]
   selectedCollection: string | null
@@ -323,9 +327,11 @@ const CollectionsSidebar = ({
   onAddCollection: (name: string) => void
   onDeleteCollection: (id: string) => void
   onRenameCollection: (id: string, newName: string) => void
+  isAddingCollection: boolean
+  setIsAddingCollection: React.Dispatch<React.SetStateAction<boolean>>
+  newCollectionName: string
+  setNewCollectionName: React.Dispatch<React.SetStateAction<string>>
 }) => {
-  const [isAddingCollection, setIsAddingCollection] = useState(false)
-  const [newCollectionName, setNewCollectionName] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
 
@@ -382,7 +388,7 @@ const CollectionsSidebar = ({
               className="h-8 w-8"
               onClick={handleAddCollection}
             >
-              <Plus className="h-4 w-4" />
+              <Check className="h-4 w-4" />
             </Button>
             <Button
               size="icon"
@@ -431,8 +437,11 @@ const CollectionsSidebar = ({
                       }
                     }}
                     onBlur={() => {
-                      setEditingId(null)
-                      setEditName('')
+                      // Only reset if it's still in editing mode for this collection
+                      if (editingId === collection.id) {
+                        setEditingId(null)
+                        setEditName('')
+                      }
                     }}
                   />
                 </div>
@@ -453,7 +462,7 @@ const CollectionsSidebar = ({
                     {collection.name}
                   </span>
                   <span className="text-xs opacity-70">
-                    ({collection.pdfIds.length})
+                    ({Object.keys(collection.pdfIds).length})
                   </span>
                   <div className="opacity-0 group-hover:opacity-100 flex gap-1">
                     <button
@@ -508,14 +517,29 @@ const CollectionsSidebar = ({
 
 const MainWindowContent = () => {
   const {
-    isLoading,
+    isLoading: isPdfListLoading,
     data: pdfList = [],
     refetch: refetchPdfList,
   } = useFetchPdfList()
-  const [collections, setCollections] = useState<Collection[]>([])
+
+  const { isLoading: isCollectionsLoading, data: collections = [] } =
+    useFetchCollections()
+
   const [selectedCollection, setSelectedCollection] = useState<string | null>(
     null
   )
+
+  const [isAddingCollection, setIsAddingCollection] = useState(false)
+  const [newCollectionName, setNewCollectionName] = useState('')
+
+  const { mutate: createCollection } = useCreateCollection()
+  const { mutate: renameCollection } = useRenameCollection()
+  const { mutate: deleteCollection } = useDeleteCollection({
+    onSuccess: () => {
+      setSelectedCollection(null)
+    },
+  })
+  const { mutate: togglePdfInCollection } = useTogglePdfInCollection()
 
   const openPdfFile = useCallback(async () => {
     const filePath = await open({
@@ -523,70 +547,50 @@ const MainWindowContent = () => {
       directory: false,
       filters: [{ name: 'PDF', extensions: ['pdf'] }],
     })
-    await invoke<string>('register_pdf', { pdfPath: filePath })
-    refetchPdfList()
+    if (filePath) {
+      await invoke<string>('register_pdf', { pdfPath: filePath })
+      refetchPdfList()
+    }
   }, [refetchPdfList])
 
   const { mutate: renamePdf } = useRenamePdf()
   const { mutate: removePdf } = useRemovePdf()
 
   const doRenamePdf = useCallback(
-    ({ id, newName }: { id: number; newName: string }) =>
-      renamePdf({ id, name: newName }),
+    ({ id, newName }: { id: string; newName: string }) =>
+      renamePdf({ id: parseInt(id), name: newName }), // id is number in rust, string in frontend
     [renamePdf]
   )
 
   const doRemovePdf = useCallback(
-    ({ id }: { id: number }) => removePdf({ id }),
+    ({ id }: { id: string }) => removePdf({ id: parseInt(id) }), // id is number in rust, string in frontend
     [removePdf]
   )
 
   const handleAddCollection = (name: string) => {
     const colors = [
-      '#3b82f6',
-      '#10b981',
-      '#f59e0b',
-      '#ef4444',
-      '#8b5cf6',
-      '#ec4899',
+      '#3b82f6', // blue-500
+      '#10b981', // green-500
+      '#f59e0b', // amber-500
+      '#ef4444', // red-500
+      '#8b5cf6', // violet-500
+      '#ec4899', // pink-500
     ]
-    const newCollection: Collection = {
-      id: Date.now().toString(),
-      name,
-      color: colors[Math.floor(Math.random() * colors.length)] ?? '#ec4899',
-      pdfIds: [],
-    }
-    setCollections([...collections, newCollection])
+    const randomColor =
+      colors[Math.floor(Math.random() * colors.length)] ?? '#ec4899'
+    createCollection({ name, color: randomColor })
   }
 
   const handleDeleteCollection = (id: string) => {
-    setCollections(collections.filter(c => c.id !== id))
-    if (selectedCollection === id) {
-      setSelectedCollection(null)
-    }
+    deleteCollection({ id })
   }
 
   const handleRenameCollection = (id: string, newName: string) => {
-    setCollections(
-      collections.map(c => (c.id === id ? { ...c, name: newName } : c))
-    )
+    renameCollection({ id, newName })
   }
 
   const handleToggleCollection = (pdfId: string, collectionId: string) => {
-    setCollections(
-      collections.map(collection => {
-        if (collection.id === collectionId) {
-          const isInCollection = collection.pdfIds.includes(pdfId)
-          return {
-            ...collection,
-            pdfIds: isInCollection
-              ? collection.pdfIds.filter(id => id !== pdfId)
-              : [...collection.pdfIds, pdfId],
-          }
-        }
-        return collection
-      })
-    )
+    togglePdfInCollection({ collectionId, pdfId: pdfId.toString() })
   }
 
   const filteredPdfList = useMemo(() => {
@@ -595,7 +599,7 @@ const MainWindowContent = () => {
     }
     const collection = collections.find(c => c.id === selectedCollection)
     if (!collection) return []
-    return pdfList.filter(pdf => collection.pdfIds.includes(pdf.id))
+    return pdfList.filter(pdf => collection.pdfIds[pdf.id])
   }, [pdfList, selectedCollection, collections])
 
   return (
@@ -607,6 +611,10 @@ const MainWindowContent = () => {
         onAddCollection={handleAddCollection}
         onDeleteCollection={handleDeleteCollection}
         onRenameCollection={handleRenameCollection}
+        isAddingCollection={isAddingCollection}
+        setIsAddingCollection={setIsAddingCollection}
+        newCollectionName={newCollectionName}
+        setNewCollectionName={setNewCollectionName}
       />
 
       <div className="flex-1 flex flex-col">
@@ -614,9 +622,7 @@ const MainWindowContent = () => {
           <div className="px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
             <div className="flex items-center">
               <BookOpen className="w-6 h-6 text-primary mr-2" />
-              <h1 className="text-xl font-bold tracking-tight">
-                PDF Viewer App
-              </h1>
+              <h1 className="text-xl font-bold tracking-tight">Akda</h1>
             </div>
             <Button className="hidden sm:flex" onClick={openPdfFile}>
               <Upload className="w-4 h-4 mr-2" />
@@ -636,7 +642,7 @@ const MainWindowContent = () => {
               </h2>
               <PdfListArea
                 pdfList={filteredPdfList}
-                isLoading={isLoading}
+                isLoading={isPdfListLoading || isCollectionsLoading}
                 doRenamePdf={doRenamePdf}
                 doRemovePdf={doRemovePdf}
                 collections={collections}

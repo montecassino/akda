@@ -37,3 +37,10 @@ export interface PdfBookmark {
   page_number: number
   label: string
 }
+
+export interface Collection {
+  id: string
+  name: string
+  color: string
+  pdfIds: Record<string, boolean>
+}
