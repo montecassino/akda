@@ -1,12 +1,15 @@
 import {
-  BookOpenIcon,
+  BookOpen,
   FileText,
-  FileTextIcon,
   Pencil,
   Trash2,
-  UploadIcon,
+  Upload,
+  Plus,
+  X,
+  FolderPlus,
+  Check,
 } from 'lucide-react'
-import React, { useCallback } from 'react'
+import React, { useCallback, useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -19,19 +22,27 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog'
-
 import { open } from '@tauri-apps/plugin-dialog'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import type { PdfEntry } from '@/types/pdf'
 import { useFetchPdfList, useRemovePdf, useRenamePdf } from '@/services/pdf'
 import { Spinner } from '../ui/shadcn-io/spinner'
-
 import { useNavigate } from '@tanstack/react-router'
 import { Textarea } from '../ui/textarea'
+import { Input } from '../ui/input'
+
+interface Collection {
+  id: string
+  name: string
+  color: string
+  pdfIds: string[]
+}
 
 interface FileItemProps extends PdfEntry {
   doRenamePdf: ({ id, newName }: { id: number; newName: string }) => void
   doRemovePdf: ({ id }: { id: number }) => void
+  collections: Collection[]
+  onToggleCollection: (pdfId: string, collectionId: string) => void
 }
 
 const FileItem: React.FC<FileItemProps> = ({
@@ -40,11 +51,14 @@ const FileItem: React.FC<FileItemProps> = ({
   cover_path,
   doRenamePdf,
   doRemovePdf,
+  collections,
+  onToggleCollection,
 }) => {
   const navigate = useNavigate()
   const [isRenaming, setIsRenaming] = React.useState(false)
   const [newName, setNewName] = React.useState(file_name)
   const [isHovered, setIsHovered] = React.useState(false)
+  const [showCollections, setShowCollections] = React.useState(false)
 
   const handleNavigate = () => {
     if (!isRenaming) {
@@ -64,7 +78,6 @@ const FileItem: React.FC<FileItemProps> = ({
       setNewName(file_name)
       return
     }
-
     try {
       doRenamePdf({ id: parseInt(id), newName })
       setIsRenaming(false)
@@ -76,19 +89,79 @@ const FileItem: React.FC<FileItemProps> = ({
 
   const handleDelete = async () => {
     doRemovePdf({ id: parseInt(id) })
+    // Remove this PDF from all collections
+    collections.forEach(collection => {
+      if (collection.pdfIds.includes(id)) {
+        onToggleCollection(id, collection.id)
+      }
+    })
   }
 
   return (
     <div
       key={id}
       onClick={handleNavigate}
-      className="flex flex-col flex-grow bg-card rounded-xl border border-border hover:bg-muted/40 transition-colors relative"
+      className="flex flex-col flex-grow bg-card rounded-xl border border-border hover:bg-muted/40 transition-colors relative cursor-pointer"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {isHovered && !isRenaming && (
         <div className="absolute left-3 top-3 flex gap-2 z-10">
-          {/* Rename */}
+          <div className="group relative">
+            <Button
+              size="icon"
+              className="h-8 w-8 bg-background shadow-sm hover:bg-accent transition-colors cursor-pointer"
+              onClick={e => {
+                e.stopPropagation()
+                setShowCollections(!showCollections)
+              }}
+            >
+              <FolderPlus className="w-4 h-4 text-muted-foreground group-hover:text-green-600 transition-colors" />
+            </Button>
+
+            {showCollections && (
+              <div
+                className="absolute left-0 top-10 w-48 bg-background border border-border rounded-lg shadow-lg p-2 z-20"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">
+                  Add to collection
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {collections.length === 0 ? (
+                    <div className="text-xs text-muted-foreground px-2 py-2">
+                      No collections yet
+                    </div>
+                  ) : (
+                    collections.map(collection => {
+                      const isInCollection = collection.pdfIds.includes(id)
+                      return (
+                        <button
+                          key={collection.id}
+                          onClick={e => {
+                            e.stopPropagation()
+                            onToggleCollection(id, collection.id)
+                          }}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded text-sm transition-colors"
+                        >
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: collection.color }}
+                          />
+                          <span className="flex-1 text-left truncate">
+                            {collection.name}
+                          </span>
+                          {isInCollection && (
+                            <Check className="w-4 h-4 text-green-600" />
+                          )}
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           <div className="group">
             <Button
               size="icon"
@@ -102,21 +175,18 @@ const FileItem: React.FC<FileItemProps> = ({
               <Pencil className="w-4 h-4 text-muted-foreground group-hover:text-blue-600 transition-colors" />
             </Button>
           </div>
-
-          {/* Delete */}
           <div className="group">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 bg-background shadow-sm  transition-colors cursor-pointer"
+                  className="h-8 w-8 bg-background shadow-sm transition-colors cursor-pointer"
                   onClick={e => e.stopPropagation()}
                 >
                   <Trash2 className="w-4 h-4 text-muted-foreground group-hover:text-destructive" />
                 </Button>
               </AlertDialogTrigger>
-
               <AlertDialogContent
                 onClick={e => e.stopPropagation()}
                 className="sm:max-w-[400px]"
@@ -142,7 +212,6 @@ const FileItem: React.FC<FileItemProps> = ({
           </div>
         </div>
       )}
-
       <div className="relative w-full aspect-[3/4] bg-muted flex items-center justify-center rounded-t-xl overflow-hidden">
         {cover_path ? (
           <img
@@ -158,7 +227,6 @@ const FileItem: React.FC<FileItemProps> = ({
           </div>
         )}
       </div>
-
       <div className="flex flex-col flex-1 p-3 relative">
         {isRenaming ? (
           <form onSubmit={handleRename}>
@@ -200,11 +268,15 @@ const PdfListArea = ({
   isLoading,
   doRenamePdf,
   doRemovePdf,
+  collections,
+  onToggleCollection,
 }: {
   pdfList: PdfEntry[]
   isLoading: boolean
   doRenamePdf: ({ id, newName }: { id: number; newName: string }) => void
   doRemovePdf: ({ id }: { id: number }) => void
+  collections: Collection[]
+  onToggleCollection: (pdfId: string, collectionId: string) => void
 }) => {
   if (isLoading) return <Spinner variant="ring" />
 
@@ -217,13 +289,14 @@ const PdfListArea = ({
             {...file}
             doRenamePdf={doRenamePdf}
             doRemovePdf={doRemovePdf}
+            collections={collections}
+            onToggleCollection={onToggleCollection}
           />
         ))}
       </div>
-
       {pdfList.length === 0 && (
         <div className="text-center p-10 border-2 border-dashed border-border rounded-xl mt-8 bg-muted/30">
-          <FileTextIcon className="w-12 h-12 text-muted-foreground mx-auto" />
+          <FileText className="w-12 h-12 text-muted-foreground mx-auto" />
           <p className="mt-4 text-lg font-medium text-foreground">
             No recent files found.
           </p>
@@ -236,12 +309,213 @@ const PdfListArea = ({
   )
 }
 
+const CollectionsSidebar = ({
+  collections,
+  selectedCollection,
+  onSelectCollection,
+  onAddCollection,
+  onDeleteCollection,
+  onRenameCollection,
+}: {
+  collections: Collection[]
+  selectedCollection: string | null
+  onSelectCollection: (id: string | null) => void
+  onAddCollection: (name: string) => void
+  onDeleteCollection: (id: string) => void
+  onRenameCollection: (id: string, newName: string) => void
+}) => {
+  const [isAddingCollection, setIsAddingCollection] = useState(false)
+  const [newCollectionName, setNewCollectionName] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+
+  const handleAddCollection = () => {
+    if (newCollectionName.trim()) {
+      onAddCollection(newCollectionName.trim())
+      setNewCollectionName('')
+      setIsAddingCollection(false)
+    }
+  }
+
+  const handleRenameCollection = (id: string) => {
+    if (editName.trim()) {
+      onRenameCollection(id, editName.trim())
+      setEditingId(null)
+      setEditName('')
+    }
+  }
+
+  return (
+    <div className="w-64 bg-card border-r border-border flex flex-col h-full">
+      <div className="p-4 border-b border-border">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-sm text-foreground">Collections</h3>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={() => setIsAddingCollection(true)}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {isAddingCollection && (
+          <div className="flex gap-2 mb-2">
+            <Input
+              value={newCollectionName}
+              onChange={e => setNewCollectionName(e.target.value)}
+              placeholder="Collection name"
+              className="h-8 text-sm"
+              autoFocus
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleAddCollection()
+                if (e.key === 'Escape') {
+                  setIsAddingCollection(false)
+                  setNewCollectionName('')
+                }
+              }}
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              onClick={handleAddCollection}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              onClick={() => {
+                setIsAddingCollection(false)
+                setNewCollectionName('')
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-2">
+        <button
+          onClick={() => onSelectCollection(null)}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            selectedCollection === null
+              ? 'bg-primary text-primary-foreground'
+              : 'hover:bg-muted text-foreground'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span className="font-medium">All Books</span>
+        </button>
+
+        <div className="mt-2 space-y-1">
+          {collections.map(collection => (
+            <div key={collection.id} className="group relative">
+              {editingId === collection.id ? (
+                <div className="flex gap-2 px-3 py-2">
+                  <Input
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    className="h-7 text-sm"
+                    autoFocus
+                    onKeyDown={e => {
+                      if (e.key === 'Enter')
+                        handleRenameCollection(collection.id)
+                      if (e.key === 'Escape') {
+                        setEditingId(null)
+                        setEditName('')
+                      }
+                    }}
+                    onBlur={() => {
+                      setEditingId(null)
+                      setEditName('')
+                    }}
+                  />
+                </div>
+              ) : (
+                <button
+                  onClick={() => onSelectCollection(collection.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    selectedCollection === collection.id
+                      ? 'bg-primary text-primary-foreground'
+                      : 'hover:bg-muted text-foreground'
+                  }`}
+                >
+                  <div
+                    className={`w-3 h-3 rounded-full`}
+                    style={{ backgroundColor: collection.color }}
+                  />
+                  <span className="flex-1 text-left truncate">
+                    {collection.name}
+                  </span>
+                  <span className="text-xs opacity-70">
+                    ({collection.pdfIds.length})
+                  </span>
+                  <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        setEditingId(collection.id)
+                        setEditName(collection.name)
+                      }}
+                      className="p-1 hover:bg-background/50 rounded"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          onClick={e => e.stopPropagation()}
+                          className="p-1 hover:bg-background/50 rounded"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="sm:max-w-[400px]">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Collection</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete{' '}
+                            <strong>{collection.name}</strong>? This will not
+                            delete the PDFs.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                            onClick={() => onDeleteCollection(collection.id)}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const MainWindowContent = () => {
   const {
     isLoading,
     data: pdfList = [],
     refetch: refetchPdfList,
   } = useFetchPdfList()
+  const [collections, setCollections] = useState<Collection[]>([])
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(
+    null
+  )
 
   const openPdfFile = useCallback(async () => {
     const filePath = await open({
@@ -249,7 +523,6 @@ const MainWindowContent = () => {
       directory: false,
       filters: [{ name: 'PDF', extensions: ['pdf'] }],
     })
-
     await invoke<string>('register_pdf', { pdfPath: filePath })
     refetchPdfList()
   }, [refetchPdfList])
@@ -268,39 +541,111 @@ const MainWindowContent = () => {
     [removePdf]
   )
 
+  const handleAddCollection = (name: string) => {
+    const colors = [
+      '#3b82f6',
+      '#10b981',
+      '#f59e0b',
+      '#ef4444',
+      '#8b5cf6',
+      '#ec4899',
+    ]
+    const newCollection: Collection = {
+      id: Date.now().toString(),
+      name,
+      color: colors[Math.floor(Math.random() * colors.length)] ?? '#ec4899',
+      pdfIds: [],
+    }
+    setCollections([...collections, newCollection])
+  }
+
+  const handleDeleteCollection = (id: string) => {
+    setCollections(collections.filter(c => c.id !== id))
+    if (selectedCollection === id) {
+      setSelectedCollection(null)
+    }
+  }
+
+  const handleRenameCollection = (id: string, newName: string) => {
+    setCollections(
+      collections.map(c => (c.id === id ? { ...c, name: newName } : c))
+    )
+  }
+
+  const handleToggleCollection = (pdfId: string, collectionId: string) => {
+    setCollections(
+      collections.map(collection => {
+        if (collection.id === collectionId) {
+          const isInCollection = collection.pdfIds.includes(pdfId)
+          return {
+            ...collection,
+            pdfIds: isInCollection
+              ? collection.pdfIds.filter(id => id !== pdfId)
+              : [...collection.pdfIds, pdfId],
+          }
+        }
+        return collection
+      })
+    )
+  }
+
+  const filteredPdfList = useMemo(() => {
+    if (selectedCollection === null) {
+      return pdfList
+    }
+    const collection = collections.find(c => c.id === selectedCollection)
+    if (!collection) return []
+    return pdfList.filter(pdf => collection.pdfIds.includes(pdf.id))
+  }, [pdfList, selectedCollection, collections])
+
   return (
-    <div className="h-full flex flex-col bg-background text-foreground font-sans antialiased">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-card border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <BookOpenIcon className="w-6 h-6 text-primary mr-2" />
-            <h1 className="text-xl font-bold tracking-tight">PDF Viewer App</h1>
-          </div>
-          <Button className="hidden sm:flex" onClick={openPdfFile}>
-            <UploadIcon className="w-4 h-4 mr-2" />
-            Open New PDF
-          </Button>
-        </div>
-      </header>
+    <div className="h-full flex bg-background text-foreground font-sans antialiased">
+      <CollectionsSidebar
+        collections={collections}
+        selectedCollection={selectedCollection}
+        onSelectCollection={setSelectedCollection}
+        onAddCollection={handleAddCollection}
+        onDeleteCollection={handleDeleteCollection}
+        onRenameCollection={handleRenameCollection}
+      />
 
-      {/* Main */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-          <div className="w-full">
-            <h2 className="text-2xl font-bold mb-6 border-b border-border pb-2">
-              Your Library
-            </h2>
-
-            <PdfListArea
-              pdfList={pdfList}
-              isLoading={isLoading}
-              doRenamePdf={doRenamePdf}
-              doRemovePdf={doRemovePdf}
-            />
+      <div className="flex-1 flex flex-col">
+        <header className="sticky top-0 z-10 bg-card border-b border-border shadow-sm">
+          <div className="px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div className="flex items-center">
+              <BookOpen className="w-6 h-6 text-primary mr-2" />
+              <h1 className="text-xl font-bold tracking-tight">
+                PDF Viewer App
+              </h1>
+            </div>
+            <Button className="hidden sm:flex" onClick={openPdfFile}>
+              <Upload className="w-4 h-4 mr-2" />
+              Open New PDF
+            </Button>
           </div>
-        </div>
-      </main>
+        </header>
+
+        <main className="flex-1 overflow-y-auto">
+          <div className="px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+            <div className="w-full">
+              <h2 className="text-2xl font-bold mb-6 border-b border-border pb-2">
+                {selectedCollection === null
+                  ? 'Your Library'
+                  : collections.find(c => c.id === selectedCollection)?.name ||
+                    'Collection'}
+              </h2>
+              <PdfListArea
+                pdfList={filteredPdfList}
+                isLoading={isLoading}
+                doRenamePdf={doRenamePdf}
+                doRemovePdf={doRemovePdf}
+                collections={collections}
+                onToggleCollection={handleToggleCollection}
+              />
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   )
 }
