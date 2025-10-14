@@ -1,3 +1,4 @@
+mod collections;
 mod pdf;
 mod state;
 
@@ -545,7 +546,16 @@ pub fn run() {
             pdf::get_pdf_bookmarks,
             pdf::add_pdf_bookmark,
             pdf::update_pdf_bookmark,
-            pdf::delete_pdf_bookmark
+            pdf::delete_pdf_bookmark,
+            collections::get_collections,
+            collections::create_collection,
+            collections::rename_collection,
+            collections::change_collection_color,
+            collections::delete_collection,
+            collections::add_pdf_to_collection,
+            collections::remove_pdf_from_collection,
+            collections::toggle_pdf_in_collection,
+            collections::remove_pdf_from_all_collections
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

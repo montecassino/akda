@@ -212,8 +212,8 @@ struct ExtractOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PdfBookmark {
-    pub page_number: u32,     
-    pub label: String,        
+    pub page_number: u32,
+    pub label: String,
 }
 
 pub type PdfBookmarks = Vec<PdfBookmark>;
@@ -260,11 +260,13 @@ fn extract_pdf_data(
         if options.dims {
             pdf_pages_dims.insert(page_no, Dimensions::new(height, width));
 
-                   let serialized =
-            serde_json::to_string_pretty(&pdf_pages_dims).map_err(|e| e.to_string())?;
-        fs::write(&dims_path, serialized).map_err(|e| e.to_string())?;
+            let serialized =
+                serde_json::to_string_pretty(&pdf_pages_dims).map_err(|e| e.to_string())?;
+            fs::write(&dims_path, serialized).map_err(|e| e.to_string())?;
 
-        app_handle.emit("page-dimensions-extracted", &pdf_pages_dims).unwrap();
+            app_handle
+                .emit("page-dimensions-extracted", &pdf_pages_dims)
+                .unwrap();
         }
 
         if options.thumbnail {
@@ -286,7 +288,9 @@ fn extract_pdf_data(
             page_thumbs.insert(page_no, thumb_path.to_str().unwrap().to_string());
 
             // Incremental emit
-            app_handle.emit("thumbnail-extracted", &page_thumbs).unwrap();
+            app_handle
+                .emit("thumbnail-extracted", &page_thumbs)
+                .unwrap();
 
             // Persist thumbnails incrementally
             let thumbs_serialized =
@@ -397,7 +401,16 @@ pub fn register_pdf(app_handle: tauri::AppHandle, pdf_path: String) -> Result<St
     tauri::async_runtime::spawn_blocking(move || {
         // extract_page_thumbnails(&app_handle, &pdfium_lib_path, &thread_clone_path, &thread_folder_path)
 
-        extract_pdf_data(&app_handle, &pdfium_lib_path, &thread_clone_path, &thread_folder_path, ExtractOptions{thumbnail: true, dims: true})
+        extract_pdf_data(
+            &app_handle,
+            &pdfium_lib_path,
+            &thread_clone_path,
+            &thread_folder_path,
+            ExtractOptions {
+                thumbnail: true,
+                dims: true,
+            },
+        )
     });
 
     Ok(format!("Registered PDF"))
@@ -493,7 +506,7 @@ pub async fn load_pdf(app_handle: tauri::AppHandle, id: u64) -> Result<LoadPdfRe
 
     let data = fs::read_to_string(&dims_path).map_err(|e| e.to_string())?;
     let pdf_pages_dims =
-            serde_json::from_str::<PdfPagesDimensions>(&data).map_err(|e| e.to_string())?;
+        serde_json::from_str::<PdfPagesDimensions>(&data).map_err(|e| e.to_string())?;
 
     Ok(LoadPdfResponse::new(pdf_entry, pdf_pages_dims))
 }
@@ -561,7 +574,10 @@ pub fn load_pdf_strokes(app_handle: tauri::AppHandle, pdf_id: u32) -> Result<Pdf
 }
 
 #[tauri::command]
-pub fn load_thumbnails(app_handle: tauri::AppHandle, pdf_id: u32) -> Result<PdfPagesThumbnails, String> {
+pub fn load_thumbnails(
+    app_handle: tauri::AppHandle,
+    pdf_id: u32,
+) -> Result<PdfPagesThumbnails, String> {
     log::info!("Loading pdf thumbnails: {pdf_id}");
 
     // This will handle platform specific app data directories
@@ -668,7 +684,7 @@ fn get_bookmarks_path(app_handle: &AppHandle, pdf_id: u64) -> Result<PathBuf, St
 
 fn load_bookmarks_from_file(path: &PathBuf) -> Result<PdfBookmarks, String> {
     if !path.exists() {
-        return Ok(vec![]); 
+        return Ok(vec![]);
     }
 
     let data = fs::read_to_string(path).map_err(|e| e.to_string())?;
@@ -711,10 +727,7 @@ pub fn add_pdf_bookmark(
     let path = get_bookmarks_path(&app_handle, pdf_id)?;
     let mut bookmarks = load_bookmarks_from_file(&path)?;
 
-    let new_bookmark = PdfBookmark {
-        page_number,
-        label,
-    };
+    let new_bookmark = PdfBookmark { page_number, label };
 
     bookmarks.push(new_bookmark);
     save_bookmarks_to_file(&path, &bookmarks)?;
@@ -770,4 +783,3 @@ pub fn delete_pdf_bookmark(
     save_bookmarks_to_file(&path, &bookmarks)?;
     Ok(bookmarks)
 }
-
