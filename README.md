@@ -21,24 +21,24 @@ With Akda, your annotations and notes stay synchronized across your devices, and
 
 ## ✨ Features
 
-- **🌍 Cross-Platform:** Works seamlessly on Windows, macOS, and Linux.
-- **🧠 Intelligent Notes:** Highlight, underline, strikethrough, and add notes directly to your PDFs.
-- **🧩 Modular Architecture:** Easily extend Akda with your own plugins or features.
-- **⚡ Built for Speed:** Lightweight Rust + Tauri backend ensures blazing-fast performance and minimal memory usage.
-- **🧭 Clean Interface:** A modern and minimal interface built with React and shadcn/ui.
+- **🌍 Cross-Platform:** Works seamlessly on Windows, macOS, and Linux.  
+- **🧠 Intelligent Notes:** Highlight, underline, strikethrough, and add notes directly to your PDFs.  
+- **🧩 Modular Architecture:** Easily extend Akda with your own plugins or features.  
+- **⚡ Built for Speed:** Lightweight Rust + Tauri backend ensures blazing-fast performance and minimal memory usage.  
+- **🧭 Clean Interface:** A modern and minimal interface built with React and shadcn/ui.  
 - **🔐 Open Source:** Licensed under **AGPL-3.0-or-later** — free to use, modify, and share.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **[Tauri](https://tauri.app/):** Lightweight framework for secure and fast desktop apps.
-- **[React](https://react.dev/):** UI built for responsiveness and modern design.
-- **[TypeScript](https://www.typescriptlang.org/):** For reliable and maintainable code.
-- **[Vite](https://vitejs.dev/):** Lightning-fast development and build tool.
-- **[Rust](https://www.rust-lang.org/):** Handles heavy PDF processing and system operations efficiently.
-- **[shadcn/ui](https://ui.shadcn.com/):** Elegant UI components built on Radix primitives.
-- **[Zustand](https://zustand-demo.pmnd.rs/):** Lightweight state management for local and synced app state.
+- **[Tauri](https://tauri.app/):** Lightweight framework for secure and fast desktop apps.  
+- **[React](https://react.dev/):** UI built for responsiveness and modern design.  
+- **[TypeScript](https://www.typescriptlang.org/):** For reliable and maintainable code.  
+- **[Vite](https://vitejs.dev/):** Lightning-fast development and build tool.  
+- **[Rust](https://www.rust-lang.org/):** Handles heavy PDF processing and system operations efficiently.  
+- **[shadcn/ui](https://ui.shadcn.com/):** Elegant UI components built on Radix primitives.  
+- **[Zustand](https://zustand-demo.pmnd.rs/):** Lightweight state management for local and synced app state.  
 - **[TanStack Query](https://tanstack.com/query/latest):** Manages async state, caching, and data synchronization.
 
 ---
@@ -63,8 +63,8 @@ With Akda, your annotations and notes stay synchronized across your devices, and
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+)
-- [Rust](https://rustup.rs/) (latest stable)
+- [Node.js](https://nodejs.org/) (v18+)  
+- [Rust](https://rustup.rs/) (latest stable)  
 - Platform dependencies ([Tauri Prerequisites](https://tauri.app/v1/guides/getting-started/prerequisites))
 
 ### Installation
@@ -92,27 +92,38 @@ Akda is just getting started. The roadmap includes exciting features that push c
 
 ### ☁️ Cloud Sync via Google Drive
 
-- Store your **annotations, highlights, and notes** directly in Google Drive.
-- Automatic synchronization of app state across all your devices.
-- Background updates to keep your environment in sync (Windows ↔ macOS ↔ Linux).
+- Store your **annotations, highlights, and notes** directly in Google Drive.  
+- Automatic synchronization of app state across all your devices.  
+- Background updates to keep your environment in sync (Windows ↔ macOS ↔ Linux).  
 - No central server — your data stays in **your Google Drive**.
 
 ### 📓 Smart Notebook System
 
-- Create custom notebooks to organize your PDFs and notes.
-- Add, remove, or reorder pages seamlessly.
+- Create custom notebooks to organize your PDFs and notes.  
+- Add, remove, or reorder pages seamlessly.  
+
+### 🧩 Dynamic Title Bar per OS
+
+- Adaptive title bar styling that adjusts based on your operating system (macOS, Windows, Linux).  
+- Ensures a consistent but native feel across platforms.  
+- Supports native window buttons and dark/light mode variations.
 
 ### ⚙️ Enhanced Performance & UX
 
-- Multi-tab PDF viewer for quick switching between documents.
+- Multi-tab PDF viewer for quick switching between documents.  
 - Quick-search and global annotation indexing.
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions from the community!  
-To get started, please read our [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+WIP
+
+---
+
+## 🙌 Credits
+
+- Huge thanks to [@dannysmith](https://github.com/dannysmith) for creating the excellent [Tauri Template](https://github.com/dannysmith/tauri-template), which provided a solid foundation for Akda’s production-ready setup.  
 
 ---
 
